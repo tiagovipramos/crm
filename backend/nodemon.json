@@ -1,0 +1,11 @@
+{
+  "watch": ["src"],
+  "ext": "ts,json",
+  "ignore": [
+    "src/**/*.spec.ts",
+    "node_modules",
+    "auth_*/**",
+    "*.log"
+  ],
+  "exec": "ts-node src/server.ts"
+}

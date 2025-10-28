@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Força formato brasileiro nos inputs de data */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+}
+
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  display: flex;
+  flex-direction: row-reverse;
+}
+
+input[type="date"]::-webkit-datetime-edit-day-field {
+  order: 3;
+}
+
+input[type="date"]::-webkit-datetime-edit-month-field {
+  order: 2;
+}
+
+input[type="date"]::-webkit-datetime-edit-year-field {
+  order: 1;
+}
+
+/* Estilo do calendário no Chrome */
+::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
