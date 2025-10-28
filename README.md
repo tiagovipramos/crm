@@ -84,9 +84,10 @@ O **Protecar CRM** é um sistema web completo para gestão de vendas de proteç�
 
 ## 📦 Instalação
 
+### Windows
 ```bash
 # Clone o repositório
-git clone <url-do-repositorio>
+git clone https://github.com/tiagovipramos/crm.git
 
 # Entre na pasta do projeto
 cd crm
@@ -94,9 +95,30 @@ cd crm
 # Instale as dependências
 npm install
 
-# Inicie o servidor de desenvolvimento
-npm run dev
+# Use o script de inicialização
+INICIAR-PROJETO.bat
 ```
+
+### Linux
+```bash
+# Clone o repositório
+git clone https://github.com/tiagovipramos/crm.git
+
+# Entre na pasta do projeto
+cd crm
+
+# Instale as dependências
+npm install
+
+# Dê permissão de execução aos scripts
+chmod +x iniciar-projeto.sh parar-projeto.sh
+chmod +x backend/*.sh
+
+# Use o script de inicialização
+./iniciar-projeto.sh
+```
+
+📖 **Para instruções detalhadas de instalação no Linux**, consulte [DEPLOY-LINUX.md](DEPLOY-LINUX.md)
 
 Acesse [http://localhost:3000](http://localhost:3000) no navegador.
 
@@ -257,10 +279,30 @@ Para implementar em produção, você precisará:
    - CORS configurado
    - Backup de dados
 
+## 🐧 Compatibilidade com Linux
+
+O sistema é **100% compatível com Linux**! Foram criados scripts shell equivalentes a todos os scripts Windows.
+
+### Documentação Linux
+- 📖 [DEPLOY-LINUX.md](DEPLOY-LINUX.md) - Guia completo de instalação e deploy
+- 📋 [COMPATIBILIDADE-LINUX.md](COMPATIBILIDADE-LINUX.md) - Relatório de compatibilidade
+
+### Scripts Disponíveis
+- `iniciar-projeto.sh` - Inicia frontend e backend
+- `parar-projeto.sh` - Para todos os processos
+- `backend/*.sh` - Scripts de migration e manutenção
+
+### Sistemas Testados
+- ✅ Ubuntu 20.04+
+- ✅ Debian 10+
+- ✅ Fedora/RHEL/CentOS
+- ✅ Arch Linux
+
 ## 📝 Notas Importantes
 
 - Este é um **sistema de demonstração** com dados mockados
 - A integração WhatsApp é **simulada** - não envia mensagens reais
+- **Multiplataforma**: Funciona em Windows, Linux e macOS
 - Em produção, implemente validações de segurança
 - Adicione testes unitários e E2E
 - Configure CI/CD para deploys automáticos
