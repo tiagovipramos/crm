@@ -110,10 +110,11 @@ const configuracaoPadrao: ConfiguracaoSistema = {
     { id: 'indicacao', nome: 'Indicação', cor: '#EC4899', ordem: 0, sistema: true },
     { id: 'novo', nome: 'Novo Lead', cor: '#3B82F6', ordem: 1, sistema: true },
     { id: 'primeiro_contato', nome: 'Primeiro Contato', cor: '#8B5CF6', ordem: 2, sistema: true },
-    { id: 'proposta_enviada', nome: 'Proposta Enviada', cor: '#F59E0B', ordem: 3, sistema: true },
+    { id: 'proposta_enviada', nome: 'Cotação Enviada', cor: '#F59E0B', ordem: 3, sistema: true },
     { id: 'convertido', nome: 'Convertido', cor: '#10B981', ordem: 4, sistema: true },
     { id: 'nao_solicitado', nome: 'Não Solicitado', cor: '#EF4444', ordem: 5, sistema: true },
     { id: 'perdido', nome: 'Perdido', cor: '#6B7280', ordem: 6, sistema: true },
+    { id: 'sem_whatsapp', nome: 'Sem WhatsApp', cor: '#F97316', ordem: 7, sistema: true },
   ],
   planosProtecao: [
     {

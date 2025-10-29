@@ -36,7 +36,7 @@ interface IndicadorState {
   register: (data: { nome: string; email: string; senha: string; telefone?: string; cpf?: string }) => Promise<void>;
   logout: () => void;
   fetchDashboard: () => Promise<void>;
-  fetchIndicacoes: () => Promise<void>;
+  fetchIndicacoes: (periodo?: string, mes?: number, ano?: number) => Promise<void>;
   fetchTransacoes: () => Promise<void>;
   validarWhatsApp: (telefone: string) => Promise<{ valido: boolean; existe: boolean; mensagem: string }>;
   criarIndicacao: (nomeIndicado: string, telefoneIndicado: string) => Promise<void>;
@@ -44,6 +44,7 @@ interface IndicadorState {
   atualizarAvatar: (avatarData: string) => Promise<void>;
   fetchLootBoxStatus: () => Promise<void>;
   abrirLootBox: () => Promise<{ premio: { id?: number; valor: number; tipo: string; emoji: string; cor: string } }>;
+  abrirLootBoxVendas: () => Promise<{ premio: { id?: number; valor: number; tipo: string; emoji: string; cor: string } }>;
   compartilharPremio: (lootboxId: number) => Promise<void>;
   setError: (error: string | null) => void;
 }
@@ -127,18 +128,28 @@ export const useIndicadorStore = create<IndicadorState>()(
         }
       },
 
-      fetchIndicacoes: async () => {
+      fetchIndicacoes: async (periodo?: string, mes?: number, ano?: number) => {
         const { token } = get();
         if (!token) return;
 
         set({ isLoading: true, error: null });
         try {
+          const params: any = {};
+          if (periodo && periodo !== 'mes') {
+            params.periodo = periodo;
+          }
+          if (mes && ano) {
+            params.mes = mes;
+            params.ano = ano;
+          }
+          
           const response = await axios.get(`${API_URL}/indicador/indicacoes`, {
             headers: { Authorization: `Bearer ${token}` },
+            params,
           });
           
           set({
-            indicacoes: response.data,
+            indicacoes: response.data.indicacoes || response.data,
             isLoading: false,
           });
         } catch (error: any) {
@@ -300,6 +311,31 @@ export const useIndicadorStore = create<IndicadorState>()(
           return response.data;
         } catch (error: any) {
           const errorMsg = error.response?.data?.message || 'Erro ao abrir caixa';
+          set({ error: errorMsg, isLoading: false });
+          throw new Error(errorMsg);
+        }
+      },
+
+      abrirLootBoxVendas: async () => {
+        const { token } = get();
+        if (!token) throw new Error('Não autenticado');
+
+        set({ isLoading: true, error: null });
+        try {
+          const response = await axios.post(
+            `${API_URL}/indicador/lootbox/abrir-vendas`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          
+          // Atualizar dashboard e status da lootbox
+          await get().fetchDashboard();
+          await get().fetchLootBoxStatus();
+          
+          set({ isLoading: false });
+          return response.data;
+        } catch (error: any) {
+          const errorMsg = error.response?.data?.message || 'Erro ao abrir caixa de vendas';
           set({ error: errorMsg, isLoading: false });
           throw new Error(errorMsg);
         }

@@ -99,6 +99,12 @@ io.on('connection', (socket) => {
     console.log(`👤 Consultor ${consultorId} entrou na room (socket: ${socket.id})`);
   });
 
+  // Indicador se junta a uma room específica
+  socket.on('join_indicador', (indicadorId: string) => {
+    socket.join(`indicador_${indicadorId}`);
+    console.log(`💰 Indicador ${indicadorId} entrou na room (socket: ${socket.id})`);
+  });
+
   // Admin se junta a uma room de admins
   socket.on('join_admin', (adminId: string) => {
     socket.join('admins');

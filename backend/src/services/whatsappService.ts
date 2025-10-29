@@ -92,6 +92,9 @@ class WhatsAppService {
       sock.ev.on('creds.update', saveCreds);
 
       return new Promise((resolve) => {
+        let qrTimeout: NodeJS.Timeout | null = null;
+        let connectionEstablished = false;
+
         sock.ev.on('connection.update', async (update) => {
           const { connection, lastDisconnect, qr } = update;
 
@@ -113,10 +116,26 @@ class WhatsAppService {
               ['connecting', consultorId]
             );
 
+            // ✅ Iniciar timeout APENAS quando QR Code é gerado
+            if (!qrTimeout) {
+              qrTimeout = setTimeout(() => {
+                if (!connectionEstablished) {
+                  console.log('⏰ Timeout ao gerar QR Code');
+                  sock.end(undefined);
+                  resolve(null);
+                }
+              }, 60000);
+            }
+
             resolve(qrCodeDataUrl);
           }
 
           if (connection === 'close') {
+            // ✅ Limpar timeout ao fechar conexão
+            if (qrTimeout) {
+              clearTimeout(qrTimeout);
+              qrTimeout = null;
+            }
             const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             const errorMsg = (lastDisconnect?.error as any)?.message || 'Desconhecido';
@@ -229,6 +248,13 @@ class WhatsAppService {
 
             resolve(null);
           } else if (connection === 'open') {
+            // ✅ Marcar conexão como estabelecida e limpar timeout
+            connectionEstablished = true;
+            if (qrTimeout) {
+              clearTimeout(qrTimeout);
+              qrTimeout = null;
+            }
+
             console.log('✅ WhatsApp conectado para consultor:', consultorId);
 
             // Capturar número do WhatsApp conectado
@@ -274,18 +300,31 @@ class WhatsAppService {
               });
             }
 
+            // 🔄 SINCRONIZAÇÃO AUTOMÁTICA ao conectar
+            console.log('🔄 Iniciando sincronização automática...');
+            setTimeout(async () => {
+              try {
+                const resultado = await this.sincronizarConversas(consultorId);
+                console.log(`✅ Sincronização automática concluída: ${resultado.mensagensNovas} mensagens novas`);
+                
+                // Emitir evento de sincronização concluída
+                if (this.io) {
+                  this.io.to(`consultor_${consultorId}`).emit('sincronizacao_concluida', {
+                    mensagensNovas: resultado.mensagensNovas,
+                    erros: resultado.erros
+                  });
+                }
+              } catch (error) {
+                console.error('❌ Erro na sincronização automática:', error);
+              }
+            }, 3000); // Aguardar 3 segundos após conectar para estabilizar
+
             resolve(null);
           }
         });
 
-        // Timeout de 60 segundos para gerar QR Code
-        setTimeout(() => {
-          if (!this.sessions.get(consultorId)?.connected) {
-            console.log('⏰ Timeout ao gerar QR Code');
-            sock.end(undefined);
-            resolve(null);
-          }
-        }, 60000);
+        // ✅ REMOVIDO: Timeout duplicado que causava desconexões
+        // O timeout agora é criado APENAS quando QR Code é gerado
 
         // Receber mensagens
         console.log('🔧 [DEBUG] Registrando listener messages.upsert para consultor:', consultorId);
@@ -1115,6 +1154,305 @@ class WhatsAppService {
     }
     console.log('⚠️ Nenhum socket ativo encontrado');
     return null;
+  }
+
+  // Sincronizar todas as conversas do WhatsApp com o banco de dados
+  async sincronizarConversas(consultorId: string): Promise<{ success: boolean; mensagensNovas: number; erros: number }> {
+    try {
+      console.log('🔄 Iniciando sincronização de conversas para consultor:', consultorId);
+      
+      const session = this.sessions.get(consultorId);
+      if (!session || !session.sock) {
+        throw new Error('WhatsApp não conectado');
+      }
+
+      const sock = session.sock;
+      let mensagensNovas = 0;
+      let erros = 0;
+
+      // Buscar todos os chats do WhatsApp
+      const chats = await sock.store.chats.all();
+      console.log(`📱 Total de chats encontrados no WhatsApp: ${chats.length}`);
+
+      // Processar cada chat
+      for (const chat of chats) {
+        try {
+          const jid = chat.id;
+          
+          // Pular chats de grupos e status
+          if (jid.includes('@g.us') || jid.includes('@broadcast') || jid === 'status@broadcast') {
+            continue;
+          }
+
+          // Buscar mensagens do chat (últimas 50)
+          const messages = await sock.fetchMessages(jid, 50);
+          console.log(`  📨 Chat ${jid}: ${messages.length} mensagens encontradas`);
+
+          // Processar cada mensagem
+          for (const message of messages) {
+            // Apenas processar mensagens RECEBIDAS (não enviadas por mim)
+            if (message.key.fromMe) continue;
+
+            // Verificar se já existe no banco
+            const whatsappMessageId = message.key.id;
+            if (whatsappMessageId) {
+              const existe = await query(
+                'SELECT id FROM mensagens WHERE whatsapp_message_id = ?',
+                [whatsappMessageId]
+              );
+
+              if (existe.rows.length === 0) {
+                // Mensagem nova, processar
+                await this.processarMensagemRecebida(consultorId, message);
+                mensagensNovas++;
+                console.log(`    ✅ Mensagem nova sincronizada: ${whatsappMessageId}`);
+              }
+            }
+          }
+        } catch (chatError) {
+          console.error(`  ❌ Erro ao processar chat:`, chatError);
+          erros++;
+        }
+      }
+
+      console.log(`✅ Sincronização concluída: ${mensagensNovas} mensagens novas, ${erros} erros`);
+      return { success: true, mensagensNovas, erros };
+    } catch (error) {
+      console.error('❌ Erro na sincronização:', error);
+      return { success: false, mensagensNovas: 0, erros: 1 };
+    }
+  }
+
+  // Sincronizar um chat específico
+  async sincronizarChatEspecifico(consultorId: string, numeroTelefone: string, limit: number = 500): Promise<{ success: boolean; mensagensNovas: number }> {
+    try {
+      console.log('🔄 INÍCIO SINCRONIZAÇÃO - Chat:', numeroTelefone);
+      console.log(`📊 Limite de mensagens a buscar: ${limit}`);
+      
+      const session = this.sessions.get(consultorId);
+      if (!session || !session.sock) {
+        throw new Error('WhatsApp não conectado');
+      }
+
+      const sock = session.sock;
+      
+      // 🔄 INÍCIO HISTÓRICO
+      // Buscar o telefone no banco para verificar o formato correto (pode ser @lid ou @s.whatsapp.net)
+      const leadResult = await query(
+        'SELECT telefone FROM leads WHERE telefone LIKE ? AND consultor_id = ? LIMIT 1',
+        [`%${numeroTelefone}%`, consultorId]
+      );
+      
+      let jid: string;
+      let jidAlternativo: string | null = null;
+      
+      if (leadResult.rows.length > 0 && leadResult.rows[0].telefone.includes('@')) {
+        // Usar o formato exato salvo no banco
+        jid = leadResult.rows[0].telefone;
+        console.log('📱 JID do banco:', jid);
+      } else {
+        // Tentar ambos os formatos: @s.whatsapp.net E @lid
+        const numeroLimpo = numeroTelefone.replace(/\D/g, '');
+        jid = `${numeroLimpo}@s.whatsapp.net`;
+        jidAlternativo = `${numeroLimpo}@lid`;
+        console.log('📱 JID primário:', jid);
+        console.log('📱 JID alternativo:', jidAlternativo);
+      }
+      
+      let mensagensNovas = 0;
+      let mensagensTotais = 0;
+      let mensagensEnviadas = 0;
+      let mensagensRecebidas = 0;
+
+      console.log('📥 Buscando mensagens do WhatsApp...');
+      
+      // Buscar mensagens do store (já carregadas na memória)
+      let messages: any[] = [];
+      
+      try {
+        // Acessar mensagens do store do Baileys
+        const storeMessages = sock.store?.messages?.[jid];
+        
+        if (storeMessages) {
+          // Converter objeto de mensagens em array
+          messages = Object.values(storeMessages).filter((msg: any) => msg && msg.key);
+          console.log(`✅ ${messages.length} mensagens encontradas no store para ${jid}`);
+        }
+        
+        // Se não encontrou mensagens, tentar com JID alternativo
+        if (messages.length === 0 && jidAlternativo) {
+          console.log(`⚠️ Nenhuma mensagem com ${jid}, tentando ${jidAlternativo}...`);
+          const storeMessagesAlt = sock.store?.messages?.[jidAlternativo];
+          
+          if (storeMessagesAlt) {
+            messages = Object.values(storeMessagesAlt).filter((msg: any) => msg && msg.key);
+            jid = jidAlternativo; // Usar o JID que funcionou
+            console.log(`✅ ${messages.length} mensagens encontradas no store para ${jid}`);
+          }
+        }
+        
+        // Limitar ao número solicitado
+        if (messages.length > limit) {
+          messages = messages.slice(-limit); // Pegar as mais recentes
+        }
+      } catch (error) {
+        console.error('❌ Erro ao buscar mensagens do store:', error);
+        messages = [];
+      }
+      
+      mensagensTotais = messages.length;
+      console.log(`📨 ${mensagensTotais} mensagens encontradas no histórico do WhatsApp`);
+
+      // Processar cada mensagem (AMBAS: enviadas e recebidas)
+      for (const message of messages) {
+        // Verificar se já existe no banco
+        const whatsappMessageId = message.key.id;
+        if (!whatsappMessageId) continue;
+
+        const existe = await query(
+          'SELECT id FROM mensagens WHERE whatsapp_message_id = ?',
+          [whatsappMessageId]
+        );
+
+        if (existe.rows.length === 0) {
+          // Mensagem nova, processar
+          if (message.key.fromMe) {
+            // Mensagem ENVIADA por mim
+            await this.processarMensagemEnviada(consultorId, message);
+            mensagensNovas++;
+            mensagensEnviadas++;
+            console.log(`  📤 Mensagem enviada sincronizada: ${whatsappMessageId.substring(0, 20)}...`);
+          } else {
+            // Mensagem RECEBIDA
+            await this.processarMensagemRecebida(consultorId, message);
+            mensagensNovas++;
+            mensagensRecebidas++;
+            console.log(`  📨 Mensagem recebida sincronizada: ${whatsappMessageId.substring(0, 20)}...`);
+          }
+        }
+      }
+      // 🔄 FIM HISTÓRICO
+
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('✅ SINCRONIZAÇÃO CONCLUÍDA');
+      console.log(`📊 Estatísticas:`);
+      console.log(`   • Total no WhatsApp: ${mensagensTotais}`);
+      console.log(`   • Novas sincronizadas: ${mensagensNovas}`);
+      console.log(`   • Enviadas: ${mensagensEnviadas}`);
+      console.log(`   • Recebidas: ${mensagensRecebidas}`);
+      console.log(`   • Já existentes: ${mensagensTotais - mensagensNovas}`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      return { success: true, mensagensNovas };
+    } catch (error) {
+      console.error('❌ Erro ao sincronizar chat:', error);
+      console.error('Stack:', (error as Error).stack);
+      return { success: false, mensagensNovas: 0 };
+    }
+  }
+
+  // Processar mensagem enviada durante sincronização
+  private async processarMensagemEnviada(consultorId: string, message: WAMessage) {
+    try {
+      const whatsappMessageId = message.key.id;
+      console.log('🔍 [SYNC-ENVIADA] Processando mensagem enviada - WhatsApp ID:', whatsappMessageId);
+      
+      const numero = message.key.remoteJid?.replace('@s.whatsapp.net', '') || '';
+      
+      // Extrair conteúdo da mensagem
+      let conteudo = message.message?.conversation || 
+                     message.message?.extendedTextMessage?.text || 
+                     '';
+      let tipo = 'texto';
+      let mediaUrl: string | null = null;
+      let mediaName: string | null = null;
+
+      // Processar mensagens de mídia (áudio, imagem, vídeo, documento)
+      if (message.message?.audioMessage) {
+        tipo = 'audio';
+        const duracao = message.message.audioMessage.seconds || 0;
+        conteudo = `🎤 Áudio (${Math.floor(duracao / 60)}:${(duracao % 60).toString().padStart(2, '0')})`;
+      } else if (message.message?.imageMessage) {
+        tipo = 'imagem';
+        conteudo = '📷 Imagem';
+        const caption = message.message.imageMessage.caption;
+        if (caption) conteudo += `: ${caption}`;
+      } else if (message.message?.videoMessage) {
+        tipo = 'video';
+        conteudo = '🎥 Vídeo';
+        const caption = message.message.videoMessage.caption;
+        if (caption) conteudo += `: ${caption}`;
+      } else if (message.message?.documentMessage) {
+        tipo = 'documento';
+        const fileName = message.message.documentMessage.fileName || 'documento';
+        conteudo = `📄 ${fileName}`;
+      }
+
+      if (!conteudo) return;
+
+      console.log(`📤 [SYNC-ENVIADA] Mensagem enviada para ${numero}: ${conteudo}`);
+
+      // Buscar lead
+      const leadResult = await query(
+        'SELECT id FROM leads WHERE telefone = ? AND consultor_id = ?',
+        [numero, consultorId]
+      );
+
+      if (leadResult.rows.length === 0) {
+        console.log('⚠️ [SYNC-ENVIADA] Lead não encontrado, criando...');
+        // Criar lead se não existir
+        const numeroSem55 = numero.startsWith('55') ? numero.substring(2) : numero;
+        const ddd = numeroSem55.substring(0, 2);
+        const resto = numeroSem55.substring(2);
+        const nomeFormatado = `(${ddd}) ${resto}`;
+        
+        const novoLeadResult = await query(
+          `INSERT INTO leads (nome, telefone, origem, status, consultor_id, mensagens_nao_lidas, data_criacao, data_atualizacao)
+           VALUES (?, ?, 'WhatsApp', 'novo', ?, 0, NOW(), NOW())`,
+          [nomeFormatado, numero, consultorId]
+        );
+        
+        const leadId = novoLeadResult.insertId ? String(novoLeadResult.insertId) : (await query(
+          'SELECT id FROM leads WHERE telefone = ? AND consultor_id = ? ORDER BY data_criacao DESC LIMIT 1',
+          [numero, consultorId]
+        )).rows[0]?.id;
+
+        if (!leadId) {
+          console.error('❌ [SYNC-ENVIADA] Não foi possível criar lead');
+          return;
+        }
+
+        // Salvar mensagem
+        await query(
+          `INSERT INTO mensagens (lead_id, consultor_id, conteudo, tipo, remetente, status, media_url, media_name, whatsapp_message_id, timestamp)
+           VALUES (?, ?, ?, ?, 'consultor', 'enviada', ?, ?, ?, FROM_UNIXTIME(?))`,
+          [leadId, consultorId, conteudo, tipo, mediaUrl, mediaName, whatsappMessageId, message.messageTimestamp]
+        );
+
+        await query(
+          'UPDATE leads SET ultima_mensagem = ?, data_atualizacao = NOW() WHERE id = ?',
+          [conteudo.substring(0, 50), leadId]
+        );
+      } else {
+        const leadId = leadResult.rows[0].id;
+
+        // Salvar mensagem
+        await query(
+          `INSERT INTO mensagens (lead_id, consultor_id, conteudo, tipo, remetente, status, media_url, media_name, whatsapp_message_id, timestamp)
+           VALUES (?, ?, ?, ?, 'consultor', 'enviada', ?, ?, ?, FROM_UNIXTIME(?))`,
+          [leadId, consultorId, conteudo, tipo, mediaUrl, mediaName, whatsappMessageId, message.messageTimestamp]
+        );
+
+        await query(
+          'UPDATE leads SET ultima_mensagem = ?, data_atualizacao = NOW() WHERE id = ?',
+          [conteudo.substring(0, 50), leadId]
+        );
+      }
+
+      console.log('✅ [SYNC-ENVIADA] Mensagem enviada salva com sucesso!');
+    } catch (error) {
+      console.error('❌ [SYNC-ENVIADA] Erro ao processar mensagem enviada:', error);
+    }
   }
 
   // Método auxiliar para baixar mídia

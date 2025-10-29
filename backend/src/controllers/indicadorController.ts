@@ -412,13 +412,16 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
       });
     }
 
-    // Validar WhatsApp
+    // Validar WhatsApp (mas aceitar números sem WhatsApp também)
     const validacao = await whatsappValidationService.validarComCache(telefoneIndicado);
 
-    if (!validacao.valido) {
+    // ⚠️ IMPORTANTE: Aceitar indicações mesmo sem WhatsApp validado
+    // O lead será criado no CRM e o consultor poderá fazer follow-up por outros meios
+    // Apenas bloquear se o formato do telefone for completamente inválido
+    if (!validacao.valido && validacao.telefone.length < 10) {
       return res.status(400).json({ 
         error: 'Telefone inválido',
-        message: validacao.mensagem
+        message: 'Formato de telefone inválido. Verifique o número digitado.'
       });
     }
 
@@ -533,13 +536,14 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
     // Se houver consultores online, criar o lead automaticamente
     if (consultorId) {
 
-      // Criar lead no CRM automaticamente no kanban "Indicação"
+      // Criar lead no CRM - Se não tem WhatsApp, vai para "Sem WhatsApp", senão vai para "Indicação"
+      const statusInicial = validacao.existe ? 'indicacao' : 'sem_whatsapp';
       await query(
         `INSERT INTO leads (
           nome, telefone, origem, status, mensagens_nao_lidas, 
           consultor_id, indicador_id, indicacao_id, data_criacao, data_atualizacao
-        ) VALUES (?, ?, 'Indicação', 'indicacao', 0, ?, ?, ?, NOW(), NOW())`,
-        [nomeIndicado, validacao.telefone, consultorId, indicadorId, indicacao.id]
+        ) VALUES (?, ?, 'Indicação', ?, 0, ?, ?, ?, NOW(), NOW())`,
+        [nomeIndicado, validacao.telefone, statusInicial, consultorId, indicadorId, indicacao.id]
       );
 
       // Atualizar indicação com lead_id e status
@@ -574,7 +578,8 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
         }
 
         // 📱 Enviar mensagem automática de boas-vindas via WhatsApp
-        if (statusConexao === 'online') {
+        // ⚠️ Só enviar se o número tiver WhatsApp validado E o consultor estiver online
+        if (statusConexao === 'online' && validacao.existe) {
           try {
             // Buscar nome do indicador
             const indicadorResult = await query(
@@ -608,6 +613,9 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
             // Não bloquear a criação da indicação se o WhatsApp falhar
             mensagem = 'Indicação criada com sucesso! O lead foi enviado para o CRM.';
           }
+        } else if (!validacao.existe) {
+          console.log('⚠️ Número não possui WhatsApp. Lead criado no CRM mas mensagem não será enviada.');
+          mensagem = 'Indicação criada com sucesso! O lead foi enviado para o CRM (número sem WhatsApp - follow-up manual necessário).';
         } else {
           console.log('⚠️ WhatsApp do consultor não está conectado. Mensagem de boas-vindas não será enviada.');
           mensagem = 'Indicação criada com sucesso! O lead foi enviado para o CRM.';
@@ -647,18 +655,47 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
 export const getIndicacoes = async (req: IndicadorAuthRequest, res: Response) => {
   try {
     const indicadorId = req.indicadorId;
-    const { status, limit = 50, offset = 0 } = req.query;
+    const { status, periodo, limit, offset = 0 } = req.query;
 
     let whereClause = 'WHERE ind.indicador_id = ?';
     const params: any[] = [indicadorId];
 
+    // Filtro de status
     if (status) {
       whereClause += ' AND ind.status = ?';
       params.push(status);
     }
 
-    const result = await query(
-      `SELECT 
+    // Filtro de período de data
+    if (periodo) {
+      switch (periodo) {
+        case 'hoje':
+          whereClause += ' AND DATE(ind.data_indicacao) = CURDATE()';
+          break;
+        case 'ontem':
+          whereClause += ' AND DATE(ind.data_indicacao) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)';
+          break;
+        case '7dias':
+          whereClause += ' AND ind.data_indicacao >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+          break;
+        case 'todas':
+        default:
+          // Sem filtro de data - mostra todas
+          break;
+      }
+    }
+
+    // Filtro de mês/ano específico
+    const mes = req.query.mes as string;
+    const ano = req.query.ano as string;
+    if (mes && ano) {
+      whereClause += ' AND MONTH(ind.data_indicacao) = ? AND YEAR(ind.data_indicacao) = ?';
+      params.push(parseInt(mes), parseInt(ano));
+    }
+
+    // Construir query - se não tiver limit, buscar TODAS
+    let sqlQuery = `
+      SELECT 
         ind.*,
         l.nome as lead_nome,
         l.status as lead_status,
@@ -667,10 +704,15 @@ export const getIndicacoes = async (req: IndicadorAuthRequest, res: Response) =>
        LEFT JOIN leads l ON ind.lead_id = l.id
        LEFT JOIN consultores c ON l.consultor_id = c.id
        ${whereClause}
-       ORDER BY ind.data_indicacao DESC
-       LIMIT ? OFFSET ?`,
-      [...params, parseInt(limit as string), parseInt(offset as string)]
-    );
+       ORDER BY ind.data_indicacao DESC`;
+
+    // Adicionar paginação apenas se limit for especificado
+    if (limit) {
+      sqlQuery += ' LIMIT ? OFFSET ?';
+      params.push(parseInt(limit as string), parseInt(offset as string));
+    }
+
+    const result = await query(sqlQuery, params);
 
     const indicacoes = result.rows.map((ind: any) => ({
       id: ind.id,
@@ -688,7 +730,18 @@ export const getIndicacoes = async (req: IndicadorAuthRequest, res: Response) =>
       consultorNome: ind.consultor_nome
     }));
 
-    res.json(indicacoes);
+    // Retornar também o total de indicações para o frontend
+    // Criar params sem limit e offset para o COUNT
+    const countParams = limit ? params.slice(0, -2) : params;
+    const countResult = await query(
+      `SELECT COUNT(*) as total FROM indicacoes ind ${whereClause}`,
+      countParams
+    );
+
+    res.json({
+      indicacoes,
+      total: countResult.rows[0].total
+    });
   } catch (error) {
     console.error('Erro ao buscar indicações:', error);
     res.status(500).json({ 
@@ -1168,7 +1221,7 @@ export const abrirLootBox = async (req: IndicadorAuthRequest, res: Response) => 
     if (leadsParaProximaCaixa < 10) {
       return res.status(400).json({ 
         error: 'Leads insuficientes',
-        message: `Você precisa de ${10 - leadsParaProximaCaixa} leads para abrir uma caixa`
+        message: `Você precisa de ${10 - leadsParaProximaCaixa} indicações para abrir a caixa`
       });
     }
 
@@ -1263,6 +1316,132 @@ export const abrirLootBox = async (req: IndicadorAuthRequest, res: Response) => 
     });
   } catch (error) {
     console.error('Erro ao abrir loot box:', error);
+    res.status(500).json({ 
+      error: 'Erro ao abrir caixa',
+      message: 'Erro interno do servidor'
+    });
+  }
+};
+
+export const abrirLootBoxVendas = async (req: IndicadorAuthRequest, res: Response) => {
+  try {
+    const indicadorId = req.indicadorId;
+
+    // Buscar status atual do indicador
+    const indicadorResult = await query(
+      `SELECT vendas_para_proxima_caixa, saldo_disponivel
+       FROM indicadores WHERE id = ?`,
+      [indicadorId]
+    );
+
+    if (indicadorResult.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Indicador não encontrado'
+      });
+    }
+
+    const indicador = indicadorResult.rows[0];
+    const vendasParaProximaCaixa = indicador.vendas_para_proxima_caixa || 0;
+
+    // Verificar se pode abrir
+    if (vendasParaProximaCaixa < 5) {
+      return res.status(400).json({ 
+        error: 'Vendas insuficientes',
+        message: `Você precisa de ${5 - vendasParaProximaCaixa} vendas para abrir a caixa`
+      });
+    }
+
+    // Buscar prêmios disponíveis (pode ser os mesmos ou ter prêmios específicos para vendas)
+    const premiosResult = await query(
+      'SELECT * FROM lootbox_premios WHERE ativo = TRUE'
+    );
+
+    if (premiosResult.rows.length === 0) {
+      return res.status(500).json({ 
+        error: 'Sem prêmios disponíveis',
+        message: 'Não há prêmios configurados no sistema'
+      });
+    }
+
+    // Sortear prêmio baseado no peso
+    const premios = premiosResult.rows;
+    const pesoTotal = premios.reduce((sum: number, p: any) => sum + p.peso, 0);
+    let random = Math.random() * pesoTotal;
+    
+    let premioSorteado: any = premios[0];
+    for (const premio of premios) {
+      random -= premio.peso;
+      if (random <= 0) {
+        premioSorteado = premio;
+        break;
+      }
+    }
+
+    // Adicionar prêmio ao saldo disponível
+    await query(
+      `UPDATE indicadores 
+       SET saldo_disponivel = saldo_disponivel + ?,
+           vendas_para_proxima_caixa = vendas_para_proxima_caixa - 5,
+           total_caixas_vendas_abertas = total_caixas_vendas_abertas + 1,
+           total_ganho_caixas_vendas = total_ganho_caixas_vendas + ?
+       WHERE id = ?`,
+      [premioSorteado.valor, premioSorteado.valor, indicadorId]
+    );
+
+    // Registrar no histórico
+    const historicoResult = await query(
+      `INSERT INTO lootbox_historico (
+        indicador_id, premio_valor, premio_tipo, leads_acumulados, data_abertura
+      ) VALUES (?, ?, ?, ?, NOW())`,
+      [indicadorId, premioSorteado.valor, premioSorteado.tipo, vendasParaProximaCaixa]
+    );
+
+    // Registrar transação
+    await query(
+      `INSERT INTO transacoes_indicador (
+        indicador_id, tipo, valor, saldo_anterior, saldo_novo, descricao
+      ) SELECT 
+        ?, 'lootbox_vendas', ?, saldo_disponivel - ?, saldo_disponivel,
+        ?
+       FROM indicadores WHERE id = ?`,
+      [
+        indicadorId, 
+        premioSorteado.valor, 
+        premioSorteado.valor,
+        `🎁 Prêmio da Caixa de Vendas ${premioSorteado.emoji}`,
+        indicadorId
+      ]
+    );
+
+    // Emitir evento Socket.IO
+    const io = (global as any).io;
+    if (io) {
+      io.to(`indicador_${indicadorId}`).emit('lootbox_vendas_aberta', {
+        premio: {
+          valor: parseFloat(premioSorteado.valor),
+          tipo: premioSorteado.tipo,
+          emoji: premioSorteado.emoji,
+          cor: premioSorteado.cor_hex
+        },
+        novoSaldo: parseFloat(indicador.saldo_disponivel) + parseFloat(premioSorteado.valor),
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    res.json({
+      success: true,
+      premio: {
+        id: historicoResult.insertId,
+        valor: parseFloat(premioSorteado.valor),
+        tipo: premioSorteado.tipo,
+        emoji: premioSorteado.emoji,
+        cor: premioSorteado.cor_hex
+      },
+      novoSaldo: parseFloat(indicador.saldo_disponivel) + parseFloat(premioSorteado.valor),
+      vendasRestantes: vendasParaProximaCaixa - 5
+    });
+  } catch (error) {
+    console.error('Erro ao abrir loot box de vendas:', error);
     res.status(500).json({ 
       error: 'Erro ao abrir caixa',
       message: 'Erro interno do servidor'

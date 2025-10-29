@@ -15,6 +15,7 @@ import {
   atualizarAvatar,
   getLootBoxStatus,
   abrirLootBox,
+  abrirLootBoxVendas,
   compartilharPremio
 } from '../controllers/indicadorController';
 import { authIndicador } from '../middleware/authIndicador';
@@ -61,6 +62,7 @@ router.post('/avatar', authIndicador, atualizarAvatar);
 // Loot Box / Caixa Misteriosa
 router.get('/lootbox/status', authIndicador, getLootBoxStatus);
 router.post('/lootbox/abrir', authIndicador, abrirLootBox);
+router.post('/lootbox/abrir-vendas', authIndicador, abrirLootBoxVendas);
 router.post('/lootbox/compartilhar', authIndicador, compartilharPremio);
 
 export default router;

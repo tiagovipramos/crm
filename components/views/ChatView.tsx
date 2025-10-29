@@ -54,6 +54,7 @@ export default function ChatView() {
   const [resultadosBusca, setResultadosBusca] = useState<number[]>([]);
   const [indiceResultadoAtual, setIndiceResultadoAtual] = useState(0);
   const [notaInterna, setNotaInterna] = useState('');
+  const [sincronizando, setSincronizando] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -593,9 +594,10 @@ export default function ChatView() {
               { id: 'todos', label: 'Todos', cor: '#128C7E' },
               { id: 'novo', label: 'Novo', cor: '#3B82F6' },
               { id: 'primeiro_contato', label: '1º Contato', cor: '#8B5CF6' },
-              { id: 'proposta_enviada', label: 'Proposta', cor: '#F59E0B' },
+              { id: 'proposta_enviada', label: 'Cotação', cor: '#F59E0B' },
               { id: 'convertido', label: 'Convertido', cor: '#10B981' },
-              { id: 'perdido', label: 'Perdido', cor: '#6B7280' }
+              { id: 'perdido', label: 'Perdido', cor: '#6B7280' },
+              { id: 'sem_whatsapp', label: 'Sem WhatsApp', cor: '#F97316' }
             ].map((filtro) => {
               const isActive = filtroChat === filtro.id;
               
@@ -717,6 +719,60 @@ export default function ChatView() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Botão de Sincronização */}
+              <button
+                onClick={async () => {
+                  if (!leadSelecionado || sincronizando) return;
+                  
+                  setSincronizando(true);
+                  try {
+                    // Limpar o telefone removendo qualquer sufixo (@lid, @s.whatsapp.net, etc)
+                    const numeroLimpo = leadSelecionado.telefone.replace(/\D/g, '');
+                    console.log('🔄 Iniciando sincronização manual do chat:', numeroLimpo);
+                    
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/whatsapp/sincronizar-chat`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({
+                        numero: numeroLimpo
+                      })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                      alert(`✅ ${data.message}`);
+                      // Recarregar mensagens
+                      setTimeout(() => {
+                        selecionarLead(leadSelecionado.id);
+                      }, 1000);
+                    } else {
+                      alert(`❌ Erro: ${data.error || 'Não foi possível sincronizar'}`);
+                    }
+                  } catch (error) {
+                    console.error('❌ Erro ao sincronizar chat:', error);
+                    alert('❌ Erro ao sincronizar. Verifique se o WhatsApp está conectado.');
+                  } finally {
+                    setSincronizando(false);
+                  }
+                }}
+                disabled={sincronizando}
+                className={`p-2 hover:bg-gray-200 rounded-full transition ${sincronizando ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title="Sincronizar mensagens deste chat"
+              >
+                {sincronizando ? (
+                  <div className="w-5 h-5 border-2 border-[#128C7E] border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-5 h-5 text-[#128C7E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+              </button>
+
               <div className="relative">
                 <button 
                   onClick={() => setMostrarConfigNotificacoes(!mostrarConfigNotificacoes)}

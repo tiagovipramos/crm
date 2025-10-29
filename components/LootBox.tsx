@@ -8,6 +8,7 @@ interface LootBoxProps {
   leadsParaProximaCaixa: number;
   leadsNecessarios: number;
   podeAbrir: boolean;
+  tipo?: 'indicacoes' | 'vendas';
   onAbrir: () => Promise<{
     premio: {
       id?: number;
@@ -25,6 +26,7 @@ export default function LootBox({
   leadsParaProximaCaixa,
   leadsNecessarios,
   podeAbrir,
+  tipo = 'indicacoes',
   onAbrir,
   onCompartilhar,
   onClose,
@@ -166,7 +168,10 @@ export default function LootBox({
             🎁 Caixa Misteriosa
           </h2>
           <p className="text-purple-200 text-sm">
-            A cada 10 indicações = 1 prêmio surpresa!
+            {tipo === 'vendas' 
+              ? `A cada ${leadsNecessarios} vendas = 1 prêmio surpresa!`
+              : `A cada ${leadsNecessarios} indicações = 1 prêmio surpresa!`
+            }
           </p>
         </div>
 

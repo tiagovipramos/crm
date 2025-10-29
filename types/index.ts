@@ -36,7 +36,7 @@ export interface Lead {
   corVeiculo?: string;
   anoVeiculo?: number;
   origem: string;
-  status: 'novo' | 'primeiro_contato' | 'aguardando_retorno' | 'vistoria_agendada' | 'proposta_enviada' | 'convertido' | 'perdido' | 'engano';
+  status: 'indicacao' | 'novo' | 'primeiro_contato' | 'aguardando_retorno' | 'vistoria_agendada' | 'proposta_enviada' | 'convertido' | 'perdido' | 'engano' | 'nao_solicitado' | 'sem_whatsapp';
   consultorId: string;
   observacoes?: string;
   informacoesComerciais?: string;

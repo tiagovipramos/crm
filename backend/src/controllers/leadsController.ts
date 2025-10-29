@@ -216,6 +216,22 @@ export const updateLead = async (req: Request, res: Response) => {
 
     // Se o status foi atualizado, emitir evento Socket.IO para admins
     if (fields.includes('status')) {
+      // Buscar dados do lead para verificar se tem indicação
+      const leadDataResult = await query(
+        'SELECT indicacao_id, indicador_id, nome FROM leads WHERE id = ?',
+        [id]
+      );
+
+      if (leadDataResult.rows.length > 0) {
+        const leadData = leadDataResult.rows[0];
+        const indicacaoId = leadData.indicacao_id;
+        const indicadorId = leadData.indicador_id;
+        const novoStatus = updates.status;
+
+        // ⚡ Os triggers do banco já atualizam o status da indicação automaticamente
+        // Não é necessário atualizar manualmente aqui
+      }
+
       const io = (req.app as any).get('io');
       console.log('🔍 DEBUG: Status foi atualizado! io existe?', !!io);
       if (io) {
@@ -228,6 +244,45 @@ export const updateLead = async (req: Request, res: Response) => {
           timestamp: new Date().toISOString()
         });
         console.log('✅ Evento emitido com sucesso!');
+
+        if (leadDataResult.rows.length > 0) {
+          const leadData = leadDataResult.rows[0];
+          const indicadorId = leadData.indicador_id;
+          const novoStatus = updates.status;
+
+          // 💰 Emitir evento para o indicador se o lead tem indicação
+          // Os triggers do banco já atualizam o saldo automaticamente
+          if (indicadorId && (novoStatus === 'proposta_enviada' || novoStatus === 'convertido' || novoStatus === 'nao_solicitado' || novoStatus === 'perdido' || novoStatus === 'engano')) {
+            console.log('💰 Lead tem indicação! Notificando indicador:', indicadorId);
+            
+            // Buscar dados atualizados do indicador após os triggers executarem
+            const indicadorResult = await query(
+              'SELECT saldo_disponivel, saldo_bloqueado, saldo_perdido FROM indicadores WHERE id = ?',
+              [indicadorId]
+            );
+
+            if (indicadorResult.rows.length > 0) {
+              const indicador = indicadorResult.rows[0];
+              
+              // Emitir evento de atualização de saldo para o indicador
+              io.to(`indicador_${indicadorId}`).emit('saldo_atualizado', {
+                indicadorId,
+                leadId: id,
+                leadNome: leadData.nome,
+                status: novoStatus,
+                saldoDisponivel: parseFloat(indicador.saldo_disponivel),
+                saldoBloqueado: parseFloat(indicador.saldo_bloqueado),
+                saldoPerdido: parseFloat(indicador.saldo_perdido),
+                timestamp: new Date().toISOString()
+              });
+              
+              console.log('✅ Evento de atualização de saldo emitido para indicador:', indicadorId);
+              console.log('💰 Novo saldo disponível:', indicador.saldo_disponivel);
+              console.log('🔒 Novo saldo bloqueado:', indicador.saldo_bloqueado);
+              console.log('❌ Novo saldo perdido:', indicador.saldo_perdido);
+            }
+          }
+        }
       } else {
         console.error('❌ Socket.IO não encontrado no app!');
       }
@@ -359,14 +414,14 @@ export const updateStatus = async (req: Request, res: Response) => {
     }
 
     // Verificar se o status é válido
-    const statusValidos = ['novo', 'primeiro_contato', 'proposta_enviada', 'convertido', 'perdido'];
+    const statusValidos = ['novo', 'primeiro_contato', 'proposta_enviada', 'convertido', 'perdido', 'nao_solicitado', 'engano'];
     if (!statusValidos.includes(status)) {
       return res.status(400).json({ error: 'Status inválido' });
     }
 
-    // Verificar se o lead pertence ao consultor
+    // Verificar se o lead pertence ao consultor e buscar dados da indicação
     const checkResult = await query(
-      'SELECT id FROM leads WHERE id = ? AND consultor_id = ?',
+      'SELECT id, indicacao_id, indicador_id, nome FROM leads WHERE id = ? AND consultor_id = ?',
       [id, consultorId]
     );
 
@@ -374,6 +429,10 @@ export const updateStatus = async (req: Request, res: Response) => {
       console.log('❌ Lead não encontrado');
       return res.status(404).json({ error: 'Lead não encontrado' });
     }
+
+    const lead = checkResult.rows[0];
+    const indicacaoId = lead.indicacao_id;
+    const indicadorId = lead.indicador_id;
 
     await query(
       `UPDATE leads 
@@ -383,6 +442,7 @@ export const updateStatus = async (req: Request, res: Response) => {
     );
 
     console.log('✅ Status atualizado com sucesso');
+    console.log('⚡ Triggers do banco atualizarão a indicação automaticamente');
 
     // Emitir evento Socket.IO para admins atualizarem em tempo real
     const io = (req.app as any).get('io');
@@ -397,6 +457,39 @@ export const updateStatus = async (req: Request, res: Response) => {
         timestamp: new Date().toISOString()
       });
       console.log('✅ Evento emitido com sucesso!');
+
+      // 💰 Emitir evento para o indicador se o lead tem indicação
+      // Os triggers do banco já atualizam o saldo automaticamente
+      if (indicadorId && (status === 'proposta_enviada' || status === 'convertido' || status === 'nao_solicitado' || status === 'perdido' || status === 'engano')) {
+        console.log('💰 Lead tem indicação! Notificando indicador:', indicadorId);
+        
+        // Buscar dados atualizados do indicador após os triggers executarem
+        const indicadorResult = await query(
+          'SELECT saldo_disponivel, saldo_bloqueado, saldo_perdido FROM indicadores WHERE id = ?',
+          [indicadorId]
+        );
+
+        if (indicadorResult.rows.length > 0) {
+          const indicador = indicadorResult.rows[0];
+          
+          // Emitir evento de atualização de saldo para o indicador
+          io.to(`indicador_${indicadorId}`).emit('saldo_atualizado', {
+            indicadorId,
+            leadId: id,
+            leadNome: lead.nome,
+            status,
+            saldoDisponivel: parseFloat(indicador.saldo_disponivel),
+            saldoBloqueado: parseFloat(indicador.saldo_bloqueado),
+            saldoPerdido: parseFloat(indicador.saldo_perdido),
+            timestamp: new Date().toISOString()
+          });
+          
+          console.log('✅ Evento de atualização de saldo emitido para indicador:', indicadorId);
+          console.log('💰 Novo saldo disponível:', indicador.saldo_disponivel);
+          console.log('🔒 Novo saldo bloqueado:', indicador.saldo_bloqueado);
+          console.log('❌ Novo saldo perdido:', indicador.saldo_perdido);
+        }
+      }
     } else {
       console.error('❌ Socket.IO não encontrado no app!');
     }
