@@ -2,7 +2,10 @@
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  swcMinify: true,
+  // Excluir pasta backend do type checking
+  typescript: {
+    ignoreBuildErrors: false,
+  },
 }
 
 module.exports = nextConfig

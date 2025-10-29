@@ -49,8 +49,5 @@ docker-compose.yml
 coverage/
 .nyc_output/
 
-# Backend específico
-backend/uploads/
-backend/auth_*/
-backend/dist/
-backend/node_modules/
+# Backend específico (excluir TODA a pasta backend do build do frontend)
+backend/
