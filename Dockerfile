@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Copiar arquivos de dependências
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Rebuild do código fonte apenas quando necessário
 FROM base AS builder
