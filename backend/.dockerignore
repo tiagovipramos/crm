@@ -1,0 +1,36 @@
+# Dependências
+node_modules
+npm-debug.log
+yarn-error.log
+
+# TypeScript
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+.pnpm-debug.log*
+
+# Variáveis de ambiente
+.env
+.env*.local
+
+# Uploads e Auth (dados temporários)
+uploads/
+auth_*/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Testes
+coverage/
+.nyc_output/
+
+# Misc
+.DS_Store
+*.pem
