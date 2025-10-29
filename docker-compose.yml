@@ -1,24 +1,26 @@
 version: '3.8'
 
 services:
-  # Banco de Dados PostgreSQL
-  postgres:
-    image: postgres:16-alpine
-    container_name: crm-postgres
+  # Banco de Dados MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: crm-mysql
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME:-protecar_crm}
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
+      MYSQL_DATABASE: ${DB_NAME:-protecar_crm}
+      MYSQL_USER: ${DB_USER:-protecar}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-protecar123}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root123}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-3306}:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
       - ./backend/migrations:/docker-entrypoint-initdb.d
     networks:
       - crm-network
+    command: --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root123}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,19 +35,19 @@ services:
     environment:
       PORT: ${PORT:-3001}
       NODE_ENV: ${NODE_ENV:-production}
-      DB_HOST: postgres
-      DB_PORT: 5432
+      DB_HOST: mysql
+      DB_PORT: 3306
       DB_NAME: ${DB_NAME:-protecar_crm}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres123}
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres123}@postgres:5432/${DB_NAME:-protecar_crm}
+      DB_USER: ${DB_USER:-protecar}
+      DB_PASSWORD: ${DB_PASSWORD:-protecar123}
+      DATABASE_URL: mysql://${DB_USER:-protecar}:${DB_PASSWORD:-protecar123}@mysql:3306/${DB_NAME:-protecar_crm}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-key-in-production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     ports:
       - "${PORT:-3001}:3001"
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     volumes:
       - ./backend/uploads:/app/uploads
@@ -71,7 +73,7 @@ services:
       - crm-network
 
 volumes:
-  postgres_data:
+  mysql_data:
     driver: local
 
 networks:
