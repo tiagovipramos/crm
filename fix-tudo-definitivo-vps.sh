@@ -22,8 +22,19 @@ echo ""
 # Executar TODAS as correções no MySQL
 docker exec -i crm-mysql mysql -u protecar -pprotecar123 protecar_crm << 'EOF'
 
--- 1. Remover foreign keys temporariamente
-ALTER TABLE lootbox_historico DROP FOREIGN KEY IF EXISTS lootbox_historico_ibfk_1;
+-- 1. Remover foreign keys temporariamente (ignorar erro se não existir)
+SET @exist := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+               WHERE CONSTRAINT_SCHEMA = 'protecar_crm' 
+               AND TABLE_NAME = 'lootbox_historico' 
+               AND CONSTRAINT_NAME = 'lootbox_historico_ibfk_1');
+
+SET @sqlstmt := IF(@exist > 0, 
+    'ALTER TABLE lootbox_historico DROP FOREIGN KEY lootbox_historico_ibfk_1',
+    'SELECT ''FK não existe'' AS Info');
+
+PREPARE stmt FROM @sqlstmt;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 2. Corrigir collations
 ALTER TABLE indicadores MODIFY COLUMN id VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
