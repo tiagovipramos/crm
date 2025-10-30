@@ -2,7 +2,7 @@
 
 import { useAdminStore } from '@/store/useAdminStore';
 import { Users, Search, Filter, Plus, Lock, Unlock, UserX, UserCheck, Eye, Edit, Shield, Trash2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Vendedor, Indicador, UsuarioAdmin } from '@/types/admin';
 
 // Modal para adicionar usuário
@@ -548,7 +548,13 @@ function MonitorUsuarioModal({ onClose, usuario, tipo }: { onClose: () => void; 
 
 export default function UsuariosListView() {
   const usuarioLogado = useAdminStore((state) => state.usuarioLogado);
-  const vendedores = useAdminStore((state) => state.getVendedoresPorHierarquia());
+  const vendedoresBrutos = useAdminStore((state) => state.vendedores);
+  const getVendedoresPorHierarquia = useAdminStore((state) => state.getVendedoresPorHierarquia);
+  
+  // Memoizar vendedores para evitar re-renders excessivos
+  const vendedores = useMemo(() => {
+    return getVendedoresPorHierarquia();
+  }, [vendedoresBrutos, getVendedoresPorHierarquia]);
   const indicadores = useAdminStore((state) => state.getIndicadores());
   const admins = useAdminStore((state) => state.admins); // Usar admins direto do store
   const editarVendedor = useAdminStore((state) => state.editarVendedor);
