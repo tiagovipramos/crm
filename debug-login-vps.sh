@@ -30,6 +30,10 @@ if ! docker ps | grep -q "crm-backend"; then
 fi
 
 echo ""
+echo "🔍 Copiando script de debug para o container..."
+docker cp backend/debug-login-vps.js crm-backend:/app/debug-login-vps.js
+
+echo ""
 echo "🔍 Executando diagnóstico de login no backend..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
