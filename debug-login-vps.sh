@@ -31,7 +31,7 @@ fi
 
 echo ""
 echo "🔍 Copiando script de debug para o container..."
-docker cp backend/debug-login-vps.js crm-backend:/app/debug-login-vps.js
+docker cp backend/debug-login-simple-vps.js crm-backend:/app/debug-login-simple-vps.js
 
 echo ""
 echo "🔍 Executando diagnóstico de login no backend..."
@@ -39,7 +39,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # Executar o script de debug dentro do container
-docker exec crm-backend node debug-login-vps.js
+docker exec crm-backend node debug-login-simple-vps.js
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
