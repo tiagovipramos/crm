@@ -55,10 +55,30 @@ async function debugLogin() {
     });
     console.log();
 
-    // 5. Verificar se existe usuário admin
-    console.log('👤 5. VERIFICANDO USUÁRIO ADMIN:');
+    // 5. Verificar se coluna 'role' existe
+    console.log('👤 5. VERIFICANDO COLUNA ROLE:');
+    const roleExists = columns.find(col => col.Field === 'role');
+    
+    if (!roleExists) {
+      console.log('   ⚠️  Coluna "role" não existe!');
+      console.log('   🔧 Criando coluna role...');
+      
+      try {
+        await connection.execute(
+          `ALTER TABLE consultores ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'vendedor' AFTER senha`
+        );
+        console.log('   ✅ Coluna "role" criada com sucesso!\n');
+      } catch (error) {
+        console.log('   ❌ Erro ao criar coluna:', error.message);
+      }
+    } else {
+      console.log('   ✅ Coluna "role" existe\n');
+    }
+
+    // 6. Verificar se existe usuário admin
+    console.log('👥 6. VERIFICANDO USUÁRIO ADMIN:');
     const [admins] = await connection.execute(
-      "SELECT id, nome, email, role, ativo, senha FROM consultores WHERE role = 'diretor'"
+      "SELECT id, nome, email, " + (roleExists ? "role," : "'vendedor' as role,") + " ativo, senha FROM consultores " + (roleExists ? "WHERE role = 'diretor'" : "LIMIT 5")
     );
     
     if (admins.length === 0) {
@@ -90,10 +110,15 @@ async function debugLogin() {
       }
     }
 
-    // 6. Verificar todos os consultores
-    console.log('👥 6. LISTA DE TODOS OS CONSULTORES:');
+    // 7. Verificar todos os consultores
+    console.log('👥 7. LISTA DE TODOS OS CONSULTORES:');
+    
+    // Recarregar estrutura para verificar se role foi criada
+    const [newColumns] = await connection.execute("DESCRIBE consultores");
+    const roleNowExists = newColumns.find(col => col.Field === 'role');
+    
     const [allUsers] = await connection.execute(
-      "SELECT id, nome, email, role, ativo FROM consultores ORDER BY id"
+      "SELECT id, nome, email, " + (roleNowExists ? "role," : "'vendedor' as role,") + " ativo FROM consultores ORDER BY id"
     );
     
     if (allUsers.length === 0) {
@@ -109,8 +134,8 @@ async function debugLogin() {
       });
     }
 
-    // 7. Testar endpoint de login
-    console.log('🌐 7. TESTANDO ENDPOINT DE LOGIN:');
+    // 8. Testar endpoint de login
+    console.log('🌐 8. TESTANDO ENDPOINT DE LOGIN:');
     const postData = JSON.stringify({
       email: 'diretor@protecar.com',
       senha: '123456'
