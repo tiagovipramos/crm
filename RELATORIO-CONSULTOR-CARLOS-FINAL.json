@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-10-30T17:46:37.138Z",
+  "resultado": {
+    "tabela_usada": "consultores",
+    "consultor_criado": false,
+    "login_funcionando": false
+  },
+  "credenciais": {
+    "email": "carlos@protecar.com",
+    "senha": "123456",
+    "tipo": "consultor",
+    "url": "http://185.217.125.72:3000/crm/login"
+  },
+  "detalhes": {
+    "verificacao": "ERROR 1054 (42S22) at line 2: Unknown column 'created_at' in 'field list'\n",
+    "teste_api": "{\"error\":\"Credenciais inválidas\"}"
+  }
+}

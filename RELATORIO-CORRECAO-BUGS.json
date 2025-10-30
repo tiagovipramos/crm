@@ -1,0 +1,27 @@
+{
+  "timestamp": "2025-10-30T17:21:46.833Z",
+  "logs": {
+    "status": "    Name                  Command                  State                              Ports                       \n------------------------------------------------------------------------------------------------------------------\ncrm-backend    docker-entrypoint.sh npm start   Up             0.0.0.0:3001->3001/tcp,:::3001->3001/tcp           \ncrm-frontend   docker-entrypoint.sh node  ...   Up             0.0.0.0:3000->3000/tcp,:::3000->3000/tcp           \ncrm-mysql      docker-entrypoint.sh --def ...   Up (healthy)   0.0.0.0:3306->3306/tcp,:::3306->3306/tcp, 33060/tcp\n",
+    "backendLogs": "Attaching to crm-backend\n\u001b[36mcrm-backend |\u001b[0m \n\u001b[36mcrm-backend |\u001b[0m > protecar-crm-backend@1.0.0 start\n\u001b[36mcrm-backend |\u001b[0m > node dist/server.js\n\u001b[36mcrm-backend |\u001b[0m \n\u001b[36mcrm-backend |\u001b[0m 📁 Pasta uploads disponível em /uploads com CORS\n\u001b[36mcrm-backend |\u001b[0m 📂 Caminho absoluto dos uploads: /app/uploads\n\u001b[36mcrm-backend |\u001b[0m ✅ Conectado ao MySQL\n\u001b[36mcrm-backend |\u001b[0m ✅ Banco de dados conectado\n\u001b[36mcrm-backend |\u001b[0m \n\u001b[36mcrm-backend |\u001b[0m 🚀 ============================================\n\u001b[36mcrm-backend |\u001b[0m 🚀  VIP CRM Backend\n\u001b[36mcrm-backend |\u001b[0m 🚀 ============================================\n\u001b[36mcrm-backend |\u001b[0m 🚀  Servidor rodando em: http://localhost:3001\n\u001b[36mcrm-backend |\u001b[0m 🚀  API disponível em: http://localhost:3001/api\n\u001b[36mcrm-backend |\u001b[0m 🚀  Socket.IO ativo\n\u001b[36mcrm-backend |\u001b[0m 🚀 ============================================\n\u001b[36mcrm-backend |\u001b[0m \n\u001b[36mcrm-backend |\u001b[0m 🤖 Limpeza automática ativada (a cada 24h, mantém 90 dias)\n\u001b[36mcrm-backend |\u001b[0m 🔌 Cliente conectado: 5aKxzMuuFzB4kl32AAAB\n\u001b[36mcrm-backend |\u001b[0m 💰 Indicador 2fbbd5aa-b580-11f0-83f1-f2fc98cc764f entrou na room (socket: 5aKxzMuuFzB4kl32AAAB)\n\u001b[36mcrm-backend |\u001b[0m \n\u001b[36mcrm-backend |\u001b[0m 🔄 ============================================\n\u001b[36mcrm-backend |\u001b[0m 🔄  Reconectando Sessões do WhatsApp\n\u001b[36mcrm-backend |\u001b[0m 🔄 ============================================\n\u001b[36mcrm-backend |\u001b[0m 📁 1 sessão(ões) salva(s) encontrada(s)\n\u001b[36mcrm-backend |\u001b[0m \n\u001b[36mcrm-backend |\u001b[0m 🔌 Tentando reconectar consultor: *\n\u001b[36mcrm-backend |\u001b[0m 🔄 Tentando reconectar sessão existente...\n\u001b[36mcrm-backend |\u001b[0m 🔧 [DEBUG] Registrando listener messages.upsert para consultor: *\n\u001b[36mcrm-backend |\u001b[0m ✅ Consultor * reconectado\n\u001b[36mcrm-backend |\u001b[0m \n\u001b[36mcrm-backend |\u001b[0m ✅ Processo de reconexão concluído\n\u001b[36mcrm-backend |\u001b[0m 🔄 ============================================\n\u001b[36mcrm-backend |\u001b[0m \n\u001b[36mcrm-backend |\u001b[0m ⏰ Timeout ao gerar QR Code\n\u001b[36mcrm-backend |\u001b[0m ❌ WhatsApp desconectado. Motivo: Desconhecido (Code: undefined)\n\u001b[36mcrm-backend |\u001b[0m 📋 Status Code: undefined, Logout Code: 401\n\u001b[36mcrm-backend |\u001b[0m ⏰ Timeout ao gerar QR Code\n\u001b[36mcrm-backend |\u001b[0m [getVendedores] User ID: b9bc4ffc-ade8-11f0-9914-8cb0e93127ca\n\u001b[36mcrm-backend |\u001b[0m [getVendedores] User Role: vendedor\n\u001b[36mcrm-backend |\u001b[0m 🔌 Cliente conectado: zn1LXqeMYQkA_XOAAAAD\n\u001b[36mcrm-backend |\u001b[0m 👔 Admin b9bc4ffc-ade8-11f0-9914-8cb0e93127ca entrou na room de admins\n\u001b[36mcrm-backend |\u001b[0m 🔌 Cliente desconectado: zn1LXqeMYQkA_XOAAAAD\n",
+    "frontendLogs": "Attaching to crm-frontend\n\u001b[36mcrm-frontend |\u001b[0m    ▲ Next.js 15.5.6\n\u001b[36mcrm-frontend |\u001b[0m    - Local:        http://localhost:3000\n\u001b[36mcrm-frontend |\u001b[0m    - Network:      http://0.0.0.0:3000\n\u001b[36mcrm-frontend |\u001b[0m \n\u001b[36mcrm-frontend |\u001b[0m  ✓ Starting...\n\u001b[36mcrm-frontend |\u001b[0m  ✓ Ready in 419ms\n",
+    "errors": ""
+  },
+  "browserTest": {
+    "success": true,
+    "apiCalls": {},
+    "errors404": [
+      "http://185.217.125.72:3000/favicon.ico",
+      "http://185.217.125.72:3000/crm/dashboard",
+      "http://185.217.125.72:3000/admin/users"
+    ],
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  "rerenderFix": {
+    "arquivosEncontrados": "",
+    "diretorioUsers": "Diretório não encontrado\n"
+  }
+}

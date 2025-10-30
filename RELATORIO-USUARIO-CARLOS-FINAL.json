@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-10-30T17:43:22.228Z",
+  "configuracao": {
+    "db_root_password": "root123",
+    "db_name": "protecar_crm"
+  },
+  "resultado": {
+    "usuario_existe": false,
+    "usuario_criado_atualizado": true,
+    "login_funcionando": false
+  },
+  "credenciais": {
+    "email": "carlos@protecar.com",
+    "senha": "123456",
+    "url": "http://185.217.125.72:3000/crm/login"
+  },
+  "detalhes": {
+    "verificacao_banco": "ERROR 1146 (42S02) at line 2: Table 'protecar_crm.usuarios' doesn't exist\n",
+    "teste_login": "HTTP/1.1 401 Unauthorized\r\nX-Powered-By: Express\r\nAccess-Control-Allow-Origin: http://185.217.125.72:3000\r\nVary: Origin\r\nAccess-Control-Allow-Credentials: true\r\nAccess-Control-Expose-Headers: Content-Type,Authorization\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: 34\r\nETag: W/\"22-c0QTOW+vjz2d6jO4oAxhNUOUz18\"\r\nDate: Thu, 30 Oct 2025 17:43:20 GMT\r\nConnection: keep-alive\r\nKeep-Alive: timeout=5\r\n\r\n{\"error\":\"Credenciais inválidas\"}"
+  }
+}

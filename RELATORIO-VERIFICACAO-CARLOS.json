@@ -1,0 +1,9 @@
+{
+  "timestamp": "2025-10-30T17:42:04.128Z",
+  "containers": "crm-frontend\ncrm-backend\ncrm-mysql\n",
+  "usuario_existe": false,
+  "login_funcionando": false,
+  "teste_api": "{\"error\":\"Credenciais inválidas\"}\n\nHTTP_CODE: 401\n",
+  "verificacao_banco": "ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)\n",
+  "estrutura_tabela": "ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)\n"
+}

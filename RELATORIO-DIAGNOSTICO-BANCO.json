@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-10-30T17:44:29.832Z",
+  "diagnostico": {
+    "banco_correto": "crm_protecar",
+    "tabela_usuarios_existe": false,
+    "usuario_criado": false,
+    "login_funcionando": false
+  },
+  "credenciais": {
+    "email": "carlos@protecar.com",
+    "senha": "123456",
+    "url": "http://185.217.125.72:3000/crm/login"
+  }
+}
