@@ -20,18 +20,32 @@ echo ""
 # Executar correções no MySQL
 docker exec -i crm-mysql mysql -u protecar -pprotecar123 protecar_crm << 'EOF'
 
--- Corrigir collation da coluna created_by em indicadores
+-- 1. Remover foreign key temporariamente
+ALTER TABLE lootbox_historico DROP FOREIGN KEY IF EXISTS lootbox_historico_ibfk_1;
+
+-- 2. Corrigir collation da coluna created_by em indicadores
 ALTER TABLE indicadores 
 MODIFY COLUMN created_by VARCHAR(36) 
 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL;
 
--- Corrigir collation da coluna id em indicadores
+-- 3. Corrigir collation da coluna id em indicadores
 ALTER TABLE indicadores 
 MODIFY COLUMN id VARCHAR(36) 
 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
 
+-- 4. Corrigir collation da coluna indicador_id em lootbox_historico
+ALTER TABLE lootbox_historico 
+MODIFY COLUMN indicador_id VARCHAR(36) 
+CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL;
+
+-- 5. Recriar foreign key com collations compatíveis
+ALTER TABLE lootbox_historico 
+ADD CONSTRAINT lootbox_historico_ibfk_1 
+FOREIGN KEY (indicador_id) REFERENCES indicadores(id) 
+ON DELETE CASCADE;
+
 -- Mostrar resultado
-SELECT '✅ Collations corrigidas!' AS Status;
+SELECT '✅ Collations corrigidas e foreign key recriada!' AS Status;
 SELECT '' AS Separador;
 
 -- Verificar collations
