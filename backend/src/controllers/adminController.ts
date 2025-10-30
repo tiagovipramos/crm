@@ -791,17 +791,18 @@ export const criarVendedor = async (req: Request, res: Response) => {
       }
 
       const senhaHash = await bcrypt.hash(senha, 10);
+      const novoId = crypto.randomUUID();
       
       const [result]: any = await connection.query(
-        `INSERT INTO consultores (nome, email, senha, telefone, status_conexao, created_by) 
-         VALUES (?, ?, ?, ?, 'offline', ?)`,
-        [nome, email, senhaHash, telefone, createdBy]
+        `INSERT INTO consultores (id, nome, email, senha, telefone, status_conexao, created_by) 
+         VALUES (?, ?, ?, ?, ?, 'offline', ?)`,
+        [novoId, nome, email, senhaHash, telefone, createdBy]
       );
       
       connection.release();
       
       res.status(201).json({
-        id: result.insertId,
+        id: novoId,
         nome,
         email,
         telefone,
@@ -851,17 +852,18 @@ export const criarIndicador = async (req: Request, res: Response) => {
       }
 
       const senhaHash = await bcrypt.hash(senha, 10);
+      const novoId = crypto.randomUUID();
       
       const [result]: any = await connection.query(
-        `INSERT INTO indicadores (nome, email, senha, telefone, cpf, created_by) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [nome, email, senhaHash, telefone, cpf, createdBy]
+        `INSERT INTO indicadores (id, nome, email, senha, telefone, cpf, created_by) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [novoId, nome, email, senhaHash, telefone, cpf, createdBy]
       );
       
       connection.release();
       
       res.status(201).json({
-        id: result.insertId,
+        id: novoId,
         nome,
         email,
         telefone,
@@ -925,17 +927,18 @@ export const criarAdmin = async (req: Request, res: Response) => {
       }
 
       const senhaHash = await bcrypt.hash(senha, 10);
+      const novoId = crypto.randomUUID();
       
       const [result]: any = await connection.query(
-        `INSERT INTO consultores (nome, email, senha, telefone, status_conexao, role, created_by) 
-         VALUES (?, ?, ?, ?, 'offline', ?, ?)`,
-        [nome, email, senhaHash, telefone, role, createdBy]
+        `INSERT INTO consultores (id, nome, email, senha, telefone, status_conexao, role, created_by) 
+         VALUES (?, ?, ?, ?, ?, 'offline', ?, ?)`,
+        [novoId, nome, email, senhaHash, telefone, role, createdBy]
       );
       
       connection.release();
       
       res.status(201).json({
-        id: result.insertId,
+        id: novoId,
         nome,
         email,
         telefone,
