@@ -17,7 +17,9 @@ COPY . .
 
 # Definir ARG para variáveis de ambiente em build time
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 
 # Build do Next.js
 RUN npm run build
