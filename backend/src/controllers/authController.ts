@@ -50,38 +50,54 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '7d' }
     );
 
-    // Verificar status real do WhatsApp
-    let statusWhatsapp = whatsappService.getStatus(consultor.id);
+    // Verificar status real do WhatsApp (com tratamento de erro robusto)
     let statusConexao = 'offline';
     
-    if (statusWhatsapp.connected) {
-      statusConexao = 'online';
-    } else if (statusWhatsapp.hasSession) {
-      statusConexao = 'connecting';
-    } else {
-      // Se não está conectado, tentar reconectar sessão existente
-      console.log('🔍 Verificando se existe sessão salva para reconectar...');
-      const reconectado = await whatsappService.tryReconnectExistingSessions(consultor.id);
+    try {
+      let statusWhatsapp = whatsappService.getStatus(consultor.id);
       
-      if (reconectado) {
-        // Aguardar um momento para a conexão estabelecer
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Verificar novamente o status
-        statusWhatsapp = whatsappService.getStatus(consultor.id);
-        if (statusWhatsapp.connected) {
-          statusConexao = 'online';
-        } else {
-          statusConexao = 'connecting';
+      if (statusWhatsapp.connected) {
+        statusConexao = 'online';
+      } else if (statusWhatsapp.hasSession) {
+        statusConexao = 'connecting';
+      } else {
+        // Se não está conectado, tentar reconectar sessão existente
+        console.log('🔍 Verificando se existe sessão salva para reconectar...');
+        try {
+          const reconectado = await whatsappService.tryReconnectExistingSessions(consultor.id);
+          
+          if (reconectado) {
+            // Aguardar um momento para a conexão estabelecer
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Verificar novamente o status
+            statusWhatsapp = whatsappService.getStatus(consultor.id);
+            if (statusWhatsapp.connected) {
+              statusConexao = 'online';
+            } else {
+              statusConexao = 'connecting';
+            }
+          }
+        } catch (reconnectError) {
+          console.error('⚠️ Erro ao tentar reconectar WhatsApp (ignorado para não bloquear login):', reconnectError);
+          statusConexao = 'offline';
         }
       }
+    } catch (whatsappError) {
+      console.error('⚠️ Erro ao verificar status do WhatsApp (ignorado para não bloquear login):', whatsappError);
+      statusConexao = 'offline';
     }
 
     // Atualizar status no banco
-    await query(
-      'UPDATE consultores SET status_conexao = ? WHERE id = ?',
-      [statusConexao, consultor.id]
-    );
+    try {
+      await query(
+        'UPDATE consultores SET status_conexao = ? WHERE id = ?',
+        [statusConexao, consultor.id]
+      );
+    } catch (updateError) {
+      console.error('⚠️ Erro ao atualizar status de conexão no banco:', updateError);
+      // Não bloquear login por causa disso
+    }
 
     // Não retornar a senha
     delete consultor.senha;
