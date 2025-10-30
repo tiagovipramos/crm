@@ -1163,7 +1163,7 @@ export const getLootBoxStatus = async (req: IndicadorAuthRequest, res: Response)
     const historicoResult = await query(
       `SELECT * FROM lootbox_historico
        WHERE indicador_id = ?
-       ORDER BY data_abertura DESC
+       ORDER BY aberto_em DESC
        LIMIT 10`,
       [indicadorId]
     );
