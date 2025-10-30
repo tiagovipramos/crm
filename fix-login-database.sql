@@ -85,27 +85,41 @@ PREPARE stmt FROM @sqlstmt;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 7. Verificar se existe algum consultor
+-- 7. Adicionar coluna created_by se não existir
+SET @exist := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+               WHERE table_schema = DATABASE() 
+               AND table_name = 'consultores' 
+               AND column_name = 'created_by');
+
+SET @sqlstmt := IF(@exist = 0, 
+    'ALTER TABLE consultores ADD COLUMN created_by VARCHAR(36) NULL',
+    'SELECT ''Coluna created_by já existe'' AS Info');
+
+PREPARE stmt FROM @sqlstmt;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 8. Verificar se existe algum consultor
 SELECT 'Verificando consultores existentes...' AS Info;
 SELECT id, nome, email, role, ativo FROM consultores;
 
--- 8. Se existe pelo menos um consultor, transformar o primeiro em diretor
+-- 9. Se existe pelo menos um consultor, transformar o primeiro em diretor
 UPDATE consultores 
 SET role = 'diretor', ativo = 1 
 WHERE id = (SELECT MIN(id) FROM (SELECT id FROM consultores) AS temp);
 
--- 9. Se não existe nenhum consultor, criar um admin padrão
+-- 10. Se não existe nenhum consultor, criar um admin padrão
 INSERT INTO consultores (nome, email, senha, role, ativo, meta_mensal, tipo_comissao, comissao_fixa, comissao_minima, comissao_maxima)
 SELECT 'Diretor', 'diretor@protecar.com', '$2a$10$YourHashedPasswordHere', 'diretor', 1, 0, 'fixa', 0, 0, 0
 WHERE NOT EXISTS (SELECT 1 FROM consultores WHERE email = 'diretor@protecar.com');
 
--- 10. Ativar todos os consultores
+-- 11. Ativar todos os consultores
 UPDATE consultores SET ativo = 1 WHERE ativo = 0 OR ativo IS NULL;
 
--- 11. Mostrar resultado final
+-- 12. Mostrar resultado final
 SELECT 'Resultado final:' AS Info;
 SELECT id, nome, email, role, ativo FROM consultores ORDER BY id;
 
--- 12. Mostrar especificamente o admin
+-- 13. Mostrar especificamente o admin
 SELECT 'Usuário Admin:' AS Info;
 SELECT id, nome, email, role, ativo FROM consultores WHERE role = 'diretor';
