@@ -61,7 +61,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://185.217.125.72:3001}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://185.217.125.72:3001/api}
     container_name: crm-frontend
     restart: unless-stopped
     environment:
