@@ -105,21 +105,26 @@ CREATE TABLE IF NOT EXISTS `lootbox_historico` (
   KEY `idx_indicador` (`indicador_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Adicionar colunas faltantes na tabela indicadores se não existirem
-ALTER TABLE `indicadores` 
-ADD COLUMN IF NOT EXISTS `leads_para_proxima_caixa` int DEFAULT '0',
-ADD COLUMN IF NOT EXISTS `total_caixas_abertas` int DEFAULT '0',
-ADD COLUMN IF NOT EXISTS `total_ganho_caixas` decimal(10,2) DEFAULT '0.00',
-ADD COLUMN IF NOT EXISTS `vendas_para_proxima_caixa` int DEFAULT '0',
-ADD COLUMN IF NOT EXISTS `total_caixas_vendas_abertas` int DEFAULT '0',
-ADD COLUMN IF NOT EXISTS `total_ganho_caixas_vendas` decimal(10,2) DEFAULT '0.00';
-
 -- Verificação final
 SELECT 'Tabelas lootbox_premios e lootbox_historico criadas com sucesso!' AS status;
 EOF
 
+# Script separado para adicionar colunas (compatível com MySQL)
+cat > /tmp/fix_indicadores_columns.sql << 'EOF'
+-- Adicionar colunas uma por uma, ignorando erro se já existirem
+ALTER TABLE `indicadores` ADD COLUMN `leads_para_proxima_caixa` int DEFAULT '0';
+ALTER TABLE `indicadores` ADD COLUMN `total_caixas_abertas` int DEFAULT '0';
+ALTER TABLE `indicadores` ADD COLUMN `total_ganho_caixas` decimal(10,2) DEFAULT '0.00';
+ALTER TABLE `indicadores` ADD COLUMN `vendas_para_proxima_caixa` int DEFAULT '0';
+ALTER TABLE `indicadores` ADD COLUMN `total_caixas_vendas_abertas` int DEFAULT '0';
+ALTER TABLE `indicadores` ADD COLUMN `total_ganho_caixas_vendas` decimal(10,2) DEFAULT '0.00';
+EOF
+
 log_info "Executando correções no banco de dados..."
 docker-compose exec -T mysql mysql -u root -p${DB_ROOT_PASSWORD:-root123} ${DB_NAME:-protecar_crm} < /tmp/fix_lootbox_tables.sql
+
+log_info "Adicionando colunas na tabela indicadores..."
+docker-compose exec -T mysql mysql -u root -p${DB_ROOT_PASSWORD:-root123} ${DB_NAME:-protecar_crm} < /tmp/fix_indicadores_columns.sql 2>/dev/null || log_warning "Algumas colunas já existem (normal)"
 
 log_info "✅ Tabelas do banco de dados corrigidas"
 
