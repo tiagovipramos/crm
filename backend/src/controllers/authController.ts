@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/db-helper';
-import { whatsappService } from '../services/whatsappService';
+// import { whatsappService } from '../services/whatsappService'; // TEMPORARIAMENTE DESABILITADO
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -50,54 +50,11 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '7d' }
     );
 
-    // Verificar status real do WhatsApp (com tratamento de erro robusto)
-    let statusConexao = 'offline';
+    // TEMPORARIAMENTE DESABILITADO: Verificação do WhatsApp Service
+    // Para isolar o problema, vamos apenas definir status como offline
+    const statusConexao = 'offline';
     
-    try {
-      let statusWhatsapp = whatsappService.getStatus(consultor.id);
-      
-      if (statusWhatsapp.connected) {
-        statusConexao = 'online';
-      } else if (statusWhatsapp.hasSession) {
-        statusConexao = 'connecting';
-      } else {
-        // Se não está conectado, tentar reconectar sessão existente
-        console.log('🔍 Verificando se existe sessão salva para reconectar...');
-        try {
-          const reconectado = await whatsappService.tryReconnectExistingSessions(consultor.id);
-          
-          if (reconectado) {
-            // Aguardar um momento para a conexão estabelecer
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Verificar novamente o status
-            statusWhatsapp = whatsappService.getStatus(consultor.id);
-            if (statusWhatsapp.connected) {
-              statusConexao = 'online';
-            } else {
-              statusConexao = 'connecting';
-            }
-          }
-        } catch (reconnectError) {
-          console.error('⚠️ Erro ao tentar reconectar WhatsApp (ignorado para não bloquear login):', reconnectError);
-          statusConexao = 'offline';
-        }
-      }
-    } catch (whatsappError) {
-      console.error('⚠️ Erro ao verificar status do WhatsApp (ignorado para não bloquear login):', whatsappError);
-      statusConexao = 'offline';
-    }
-
-    // Atualizar status no banco
-    try {
-      await query(
-        'UPDATE consultores SET status_conexao = ? WHERE id = ?',
-        [statusConexao, consultor.id]
-      );
-    } catch (updateError) {
-      console.error('⚠️ Erro ao atualizar status de conexão no banco:', updateError);
-      // Não bloquear login por causa disso
-    }
+    console.log('⚠️ WhatsApp Service temporariamente desabilitado no login');
 
     // Não retornar a senha
     delete consultor.senha;
