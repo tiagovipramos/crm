@@ -108,10 +108,10 @@ UPDATE consultores
 SET role = 'diretor', ativo = 1 
 WHERE id = (SELECT MIN(id) FROM (SELECT id FROM consultores) AS temp);
 
--- 10. Se não existe nenhum consultor, criar um admin padrão
-INSERT INTO consultores (nome, email, senha, role, ativo, meta_mensal, tipo_comissao, comissao_fixa, comissao_minima, comissao_maxima)
-SELECT 'Diretor', 'diretor@protecar.com', '$2a$10$YourHashedPasswordHere', 'diretor', 1, 0, 'fixa', 0, 0, 0
-WHERE NOT EXISTS (SELECT 1 FROM consultores WHERE email = 'diretor@protecar.com');
+-- 10. Se não existe nenhum consultor, criar um admin padrão (comentado pois causa erro se colunas não existem)
+-- INSERT INTO consultores (nome, email, senha, role, ativo, meta_mensal, tipo_comissao, comissao_fixa, comissao_minima, comissao_maxima)
+-- SELECT 'Diretor', 'diretor@protecar.com', '$2a$10$YourHashedPasswordHere', 'diretor', 1, 0, 'fixa', 0, 0, 0
+-- WHERE NOT EXISTS (SELECT 1 FROM consultores WHERE email = 'diretor@protecar.com');
 
 -- 11. Ativar todos os consultores
 UPDATE consultores SET ativo = 1 WHERE ativo = 0 OR ativo IS NULL;
