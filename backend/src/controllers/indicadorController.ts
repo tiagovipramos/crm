@@ -459,9 +459,9 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
     // Criar indicação
     const result = await query(
       `INSERT INTO indicacoes (
-        indicador_id, nome_indicado, telefone_indicado, 
+        id, indicador_id, nome_indicado, telefone_indicado, 
         whatsapp_validado, status, data_indicacao, data_validacao_whatsapp
-      ) VALUES (?, ?, ?, ?, 'pendente', NOW(), NOW())`,
+      ) VALUES (UUID(), ?, ?, ?, ?, 'pendente', NOW(), NOW())`,
       [indicadorId, nomeIndicado, validacao.telefone, validacao.existe]
     );
 
