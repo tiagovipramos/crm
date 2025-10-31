@@ -51,7 +51,6 @@ services:
         condition: service_healthy
     volumes:
       - ./backend/uploads:/app/uploads
-      - ./backend/auth_*:/app/auth_*
     networks:
       - crm-network
 
