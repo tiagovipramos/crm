@@ -413,8 +413,8 @@ export const updateStatus = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Status é obrigatório' });
     }
 
-    // Verificar se o status é válido
-    const statusValidos = ['novo', 'primeiro_contato', 'proposta_enviada', 'convertido', 'perdido', 'nao_solicitado', 'engano'];
+    // ✅ Bug #14: Validação de status sincronizada com frontend
+    const statusValidos = ['indicacao', 'novo', 'primeiro_contato', 'proposta_enviada', 'convertido', 'nao_solicitado', 'perdido', 'sem_whatsapp', 'engano'];
     if (!statusValidos.includes(status)) {
       return res.status(400).json({ error: 'Status inválido' });
     }
