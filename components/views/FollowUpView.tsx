@@ -12,8 +12,10 @@ import type {
   ProximoEnvio, 
   FollowUpLead,
   FollowUpMensagem,
-  FaseFollowUp 
+  FaseFollowUp,
+  Lead
 } from '@/types';
+import { useProtecarStore } from '@/store/useProtecarStore';
 import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -28,9 +30,12 @@ function SequenciaModal({
   onClose: () => void; 
   onSave: () => void;
 }) {
+  const { configuracao } = useProtecarStore();
+  const etapas = configuracao.etapasFunil.sort((a, b) => a.ordem - b.ordem);
+  
   const [nome, setNome] = useState(sequencia?.nome || '');
   const [descricao, setDescricao] = useState(sequencia?.descricao || '');
-  const [faseInicio, setFaseInicio] = useState<FaseFollowUp>(sequencia?.fase_inicio || 'novo');
+  const [faseInicio, setFaseInicio] = useState<Lead['status']>(sequencia?.fase_inicio as Lead['status'] || 'novo');
   const [ativo, setAtivo] = useState(sequencia?.ativo ?? true);
   const [automatico, setAutomatico] = useState(sequencia?.automatico ?? true);
   const [prioridade, setPrioridade] = useState(sequencia?.prioridade || 0);
@@ -157,14 +162,14 @@ function SequenciaModal({
                 </label>
                 <select
                   value={faseInicio}
-                  onChange={(e) => setFaseInicio(e.target.value as FaseFollowUp)}
+                  onChange={(e) => setFaseInicio(e.target.value as Lead['status'])}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#075E54] focus:border-transparent"
                 >
-                  <option value="novo">Novo Lead</option>
-                  <option value="primeiro_contato">Primeiro Contato</option>
-                  <option value="proposta_enviada">Proposta Enviada</option>
-                  <option value="convertido">Convertido</option>
-                  <option value="perdido">Perdido</option>
+                  {etapas.map((etapa) => (
+                    <option key={etapa.id} value={etapa.id}>
+                      {etapa.nome}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -298,6 +303,7 @@ function SequenciaModal({
 
 // Componente principal
 export default function FollowUpView() {
+  const { configuracao } = useProtecarStore();
   const [sequencias, setSequencias] = useState<FollowUpSequencia[]>([]);
   const [estatisticas, setEstatisticas] = useState<FollowUpEstatisticas[]>([]);
   const [proximosEnvios, setProximosEnvios] = useState<ProximoEnvio[]>([]);
@@ -553,8 +559,8 @@ export default function FollowUpView() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Fase:</span>
-                        <span className="font-medium capitalize">
-                          {sequencia.fase_inicio.replace('_', ' ')}
+                        <span className="font-medium">
+                          {configuracao.etapasFunil.find(e => e.id === sequencia.fase_inicio)?.nome || sequencia.fase_inicio}
                         </span>
                       </div>
 
