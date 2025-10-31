@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/db-helper';
-// import { whatsappService } from '../services/whatsappService'; // TEMPORARIAMENTE DESABILITADO
+import { whatsappService } from '../services/whatsappService';
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -50,11 +50,20 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '7d' }
     );
 
-    // TEMPORARIAMENTE DESABILITADO: Verificação do WhatsApp Service
-    // Para isolar o problema, vamos apenas definir status como offline
-    const statusConexao = 'offline';
+    // ✅ Validar status real do WhatsApp
+    const whatsappStatus = whatsappService.getStatus(consultor.id);
+    const statusConexao = whatsappStatus.connected ? 'online' : 'offline';
     
-    console.log('⚠️ WhatsApp Service temporariamente desabilitado no login');
+    console.log(`🔍 Status WhatsApp validado no login: ${statusConexao} (connected: ${whatsappStatus.connected}, hasSession: ${whatsappStatus.hasSession})`);
+    
+    // Se o status no banco está diferente do real, corrigir
+    if (consultor.status_conexao !== statusConexao) {
+      console.log(`⚠️ Corrigindo status no banco de ${consultor.status_conexao} para ${statusConexao}`);
+      await query(
+        'UPDATE consultores SET status_conexao = ? WHERE id = ?',
+        [statusConexao, consultor.id]
+      );
+    }
 
     // Não retornar a senha
     delete consultor.senha;
