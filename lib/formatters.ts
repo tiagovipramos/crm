@@ -52,3 +52,64 @@ export const isNumeroTelefone = (nome: string): boolean => {
   // Se tem 10 ou 11 dígitos, provavelmente é telefone
   return apenasNumeros.length >= 10 && apenasNumeros === nome;
 };
+
+/**
+ * ✅ Bug #16: Formata data para o fuso horário do Brasil (UTC-3)
+ * Evita problemas de conversão de timezone
+ */
+export const formatarDataBrasil = (dataISO: string): string => {
+  if (!dataISO) return '';
+  
+  // Parse da data ISO
+  const data = new Date(dataISO);
+  
+  // Formatar para pt-BR
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo'
+  });
+};
+
+/**
+ * ✅ Bug #16: Formata hora para o fuso horário do Brasil (UTC-3)
+ */
+export const formatarHoraBrasil = (dataISO: string): string => {
+  if (!dataISO) return '';
+  
+  const data = new Date(dataISO);
+  
+  return data.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo'
+  });
+};
+
+/**
+ * ✅ Bug #16: Formata data e hora completa para o Brasil
+ */
+export const formatarDataHoraBrasil = (dataISO: string): string => {
+  if (!dataISO) return '';
+  
+  const data = new Date(dataISO);
+  
+  return data.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo'
+  });
+};
+
+/**
+ * ✅ Bug #16: Converte data brasileira (dd/mm/aaaa) para formato MySQL (yyyy-mm-dd)
+ * SEM conversão de timezone
+ */
+export const dataBrasilParaMySQL = (dataBrasil: string, hora: string = '00:00:00'): string => {
+  const [dia, mes, ano] = dataBrasil.split('/');
+  return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')} ${hora}`;
+};
