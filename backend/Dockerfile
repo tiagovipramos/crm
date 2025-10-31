@@ -41,8 +41,14 @@ COPY --from=builder /app/dist ./dist
 # Copiar migrations e outros arquivos necessários
 COPY migrations ./migrations
 
+# Copiar script de inicialização
+COPY start.sh ./start.sh
+
+# Dar permissão de execução ao script
+RUN chmod +x start.sh
+
 # Expor porta
 EXPOSE 3001
 
-# Comando para iniciar
-CMD ["npm", "start"]
+# Comando para iniciar com validação de migrations
+CMD ["./start.sh"]
