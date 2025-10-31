@@ -22,9 +22,12 @@ async function setupDatabase() {
       if (command.toLowerCase().includes('create database')) {
         // Executar CREATE DATABASE separadamente
         const conn = await pool.getConnection();
-        await conn.query(command);
-        conn.release();
-        console.log('✅ Banco de dados criado');
+        try {
+          await conn.query(command);
+          console.log('✅ Banco de dados criado');
+        } finally {
+          conn.release();
+        }
       } else if (command.toLowerCase().includes('use protecar_crm')) {
         // Skip USE command (já estamos usando o banco)
         continue;
