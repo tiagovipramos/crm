@@ -4,6 +4,7 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { BUSINESS_CONFIG } from '../config/business';
 
 // =========================================
 // LOGIN DE ADMIN
@@ -101,8 +102,7 @@ export const getEstatisticasCRM = async (req: Request, res: Response) => {
     `);
     
     const totalConversoes = parseInt(conversoes[0]?.total_conversoes || 0);
-    const valorMedioVenda = 2200; // R$ 2.200 por venda
-    const faturamentoTotal = totalConversoes * valorMedioVenda;
+    const faturamentoTotal = totalConversoes * BUSINESS_CONFIG.VALOR_MEDIO_VENDA;
     
     // Conversões do mês atual
     const [conversoesMes]: any = await connection.query(`
@@ -114,7 +114,7 @@ export const getEstatisticasCRM = async (req: Request, res: Response) => {
     `);
     
     const conversoesMesAtual = parseInt(conversoesMes[0]?.conversoes_mes || 0);
-    const faturamentoMesAtual = conversoesMesAtual * valorMedioVenda;
+    const faturamentoMesAtual = conversoesMesAtual * BUSINESS_CONFIG.VALOR_MEDIO_VENDA;
     
     // Leads totais e ativos
     const [leads]: any = await connection.query(`
@@ -141,8 +141,8 @@ export const getEstatisticasCRM = async (req: Request, res: Response) => {
     
     const tempoMedioFechamento = parseFloat(tempoMedio[0]?.tempo_medio || 0);
     
-    // Meta mensal (R$ 50.000)
-    const metaMensal = 50000;
+    // Meta mensal
+    const metaMensal = BUSINESS_CONFIG.META_MENSAL_FATURAMENTO;
     const metaAtingida = metaMensal > 0 ? (faturamentoMesAtual / metaMensal) * 100 : 0;
     
     res.json({
@@ -180,7 +180,7 @@ export const getTopPerformers = async (req: Request, res: Response) => {
         c.id,
         c.nome,
         COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) as vendas,
-        COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) * 2200 as faturamento,
+        COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) * ${BUSINESS_CONFIG.VALOR_MEDIO_VENDA} as faturamento,
         CASE 
           WHEN COUNT(l.id) > 0 
           THEN (COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) / COUNT(l.id)) * 100 
@@ -333,7 +333,7 @@ export const getTopIndicadores = async (req: Request, res: Response) => {
         nome,
         total_indicacoes as indicacoes,
         indicacoes_convertidas as convertidas,
-        indicacoes_convertidas * 2200 as faturamento_gerado,
+        indicacoes_convertidas * ${BUSINESS_CONFIG.VALOR_MEDIO_VENDA} as faturamento_gerado,
         (saldo_disponivel + saldo_bloqueado) as comissoes_recebidas
       FROM indicadores
       WHERE total_indicacoes > 0
@@ -519,7 +519,7 @@ export const getVendedores = async (req: Request, res: Response) => {
           THEN (COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) / COUNT(l.id)) * 100 
           ELSE 0 
         END as taxa_conversao,
-        COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) * 2200 as faturamento
+        COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) * ${BUSINESS_CONFIG.VALOR_MEDIO_VENDA} as faturamento
       FROM consultores c
       LEFT JOIN leads l ON l.consultor_id = c.id
       LEFT JOIN consultores criador ON c.created_by = criador.id
