@@ -5,16 +5,27 @@ import { useProtecarStore } from '@/store/useProtecarStore';
 export function useSocket() {
   const consultorAtual = useProtecarStore(state => state.consultorAtual);
   const socketRef = useRef<Socket | null>(null);
+  const consultorIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Se não há consultor, desconectar
     if (!consultorAtual) {
-      // Desconectar socket se não houver consultor
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
+      consultorIdRef.current = null;
       return;
     }
+
+    // Se o ID não mudou, não reconectar
+    if (consultorIdRef.current === consultorAtual.id && socketRef.current?.connected) {
+      console.log('⏩ Socket já conectado para este consultor, mantendo conexão');
+      return;
+    }
+
+    // Atualizar ref do ID
+    consultorIdRef.current = consultorAtual.id;
 
     // Conectar ao Socket.IO
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
@@ -178,7 +189,7 @@ export function useSocket() {
       }
       clearInterval(heartbeat);
     };
-  }, [consultorAtual?.id]);
+  }, [consultorAtual?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return socketRef.current;
 }
