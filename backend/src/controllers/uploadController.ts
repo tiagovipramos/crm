@@ -58,7 +58,8 @@ export const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB max (para vídeos)
+    fileSize: 100 * 1024 * 1024, // 100MB max (para vídeos)
+    files: 1 // Apenas 1 arquivo por request
   }
 });
 
@@ -74,6 +75,32 @@ export const uploadAndSendFile = async (req: Request, res: Response) => {
 
     if (!file) {
       return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+    }
+
+    // ✅ Validação de tamanho mínimo (1KB)
+    if (file.size < 1024) {
+      fs.unlinkSync(file.path);
+      return res.status(400).json({ error: 'Arquivo muito pequeno ou vazio' });
+    }
+
+    // ✅ Validação de tamanho máximo por tipo
+    const maxSizes: Record<string, number> = {
+      image: 10 * 1024 * 1024, // 10MB
+      audio: 16 * 1024 * 1024, // 16MB
+      video: 100 * 1024 * 1024, // 100MB
+      document: 25 * 1024 * 1024 // 25MB
+    };
+
+    let tipoCategoria = 'document';
+    if (file.mimetype.startsWith('image/')) tipoCategoria = 'image';
+    else if (file.mimetype.startsWith('audio/')) tipoCategoria = 'audio';
+    else if (file.mimetype.startsWith('video/')) tipoCategoria = 'video';
+
+    if (file.size > maxSizes[tipoCategoria]) {
+      fs.unlinkSync(file.path);
+      return res.status(400).json({ 
+        error: `Arquivo ${tipoCategoria === 'image' ? 'imagem' : tipoCategoria === 'audio' ? 'áudio' : tipoCategoria === 'video' ? 'vídeo' : 'documento'} muito grande. Máximo: ${maxSizes[tipoCategoria] / 1024 / 1024}MB` 
+      });
     }
 
     if (!leadId) {
