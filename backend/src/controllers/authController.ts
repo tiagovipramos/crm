@@ -14,7 +14,7 @@ export const login = async (req: Request, res: Response) => {
 
     // Buscar consultor no banco
     const result = await query(
-      'SELECT id, nome, email, senha, telefone, whatsapp, session_data, status_conexao, ativo FROM consultores WHERE email = ?',
+      'SELECT id, nome, email, senha, telefone, numero_whatsapp, session_data, status_conexao, ativo FROM consultores WHERE email = ?',
       [email]
     );
 
@@ -68,7 +68,7 @@ export const login = async (req: Request, res: Response) => {
       avatar: null, // avatar não existe na tabela
       sessaoWhatsapp: consultor.session_data,
       statusConexao: statusConexao,
-      numeroWhatsapp: consultor.whatsapp,
+      numeroWhatsapp: consultor.numero_whatsapp,
       dataCriacao: consultor.data_criacao,
       ultimoAcesso: consultor.ultimo_acesso
     };
@@ -88,7 +88,7 @@ export const getMe = async (req: Request, res: Response) => {
     const consultorId = req.user?.id;
 
     const result = await query(
-      'SELECT id, nome, email, telefone, whatsapp, session_data, status_conexao, data_criacao, ultimo_acesso FROM consultores WHERE id = ?',
+      'SELECT id, nome, email, telefone, numero_whatsapp, session_data, status_conexao, data_criacao, ultimo_acesso FROM consultores WHERE id = ?',
       [consultorId]
     );
 
@@ -107,7 +107,7 @@ export const getMe = async (req: Request, res: Response) => {
       avatar: null, // avatar não existe na tabela
       sessaoWhatsapp: consultor.session_data,
       statusConexao: consultor.status_conexao || 'offline',
-      numeroWhatsapp: consultor.whatsapp,
+      numeroWhatsapp: consultor.numero_whatsapp,
       dataCriacao: consultor.data_criacao,
       ultimoAcesso: consultor.ultimo_acesso
     };
