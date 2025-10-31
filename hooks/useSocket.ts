@@ -143,8 +143,19 @@ export function useSocket() {
     // Escutar desconexão WhatsApp
     socket.on('whatsapp_disconnected', (data: any) => {
       console.log('❌ WhatsApp desconectado:', data.reason);
+      console.log('🔄 Atualizando estado completo para offline...');
+      
+      // Atualizar status de conexão
       useProtecarStore.getState().atualizarStatusConexao('offline');
-      useProtecarStore.getState().atualizarConsultor({ qrCode: undefined });
+      
+      // Limpar QR Code e número do WhatsApp
+      useProtecarStore.getState().atualizarConsultor({ 
+        qrCode: undefined,
+        numeroWhatsapp: undefined,
+        statusConexao: 'offline'
+      });
+      
+      console.log('✅ Estado atualizado: WhatsApp offline');
     });
 
     // Escutar atualização de status de mensagens
