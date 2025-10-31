@@ -97,6 +97,44 @@ BEGIN
         END IF;
         
         -- ============================================
+        -- CASO 2.1: REVERSÃO - Lead voltou de CONVERTIDO para PROPOSTA_ENVIADA
+        -- ============================================
+        -- Remove R$ 10,00 do saldo_disponível + decrementa contadores
+        IF OLD.status = 'convertido' AND NEW.status = 'proposta_enviada' THEN
+            
+            UPDATE indicadores 
+            SET saldo_disponivel = saldo_disponivel - comissao_venda,
+                indicacoes_convertidas = GREATEST(indicacoes_convertidas - 1, 0),
+                vendas_para_proxima_caixa = GREATEST(vendas_para_proxima_caixa - 1, 0)
+            WHERE id = NEW.indicador_id
+              AND saldo_disponivel >= comissao_venda;
+            
+            -- Atualizar status da indicação de volta para respondeu
+            UPDATE indicacoes
+            SET status = 'respondeu',
+                comissao_venda = 0,
+                data_conversao = NULL
+            WHERE id = NEW.indicacao_id;
+            
+            -- Registrar transação de estorno
+            INSERT INTO transacoes_indicador (
+                indicador_id, indicacao_id, tipo, valor, 
+                saldo_anterior, saldo_novo, descricao
+            )
+            SELECT 
+                NEW.indicador_id,
+                NEW.indicacao_id,
+                'estorno',
+                comissao_venda,
+                saldo_disponivel + comissao_venda,
+                saldo_disponivel,
+                CONCAT('Estorno de venda - Lead voltou para cotação: ', NEW.nome)
+            FROM indicadores 
+            WHERE id = NEW.indicador_id;
+            
+        END IF;
+        
+        -- ============================================
         -- CASO 3: Lead mudou para PERDIDO, NÃO SOLICITADO ou ENGANO
         -- ============================================
         -- Move R$ 2,00 do saldo_bloqueado para saldo_perdido
