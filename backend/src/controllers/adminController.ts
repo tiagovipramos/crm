@@ -476,8 +476,9 @@ export const getVendedores = async (req: Request, res: Response) => {
     console.log('[getVendedores] User ID:', userId);
     console.log('[getVendedores] User Role:', userRole);
     
-    // Construir a query com filtro baseado no role
+    // Construir a query com filtro baseado no role usando prepared statements
     let whereClause = `WHERE (c.role = 'vendedor' OR c.role IS NULL OR c.role = '')`;
+    const queryParams: any[] = [];
     
     // Hierarquia em cascata:
     // - Diretor vê TODOS
@@ -487,13 +488,15 @@ export const getVendedores = async (req: Request, res: Response) => {
     if (userRole === 'gerente' && userId) {
       console.log('[getVendedores] Aplicando filtro de gerente (cascata)');
       // Gerente vê vendedores que ele cadastrou OU que foram cadastrados por supervisores que ele cadastrou
-      whereClause += ` AND (c.created_by = '${userId}' OR c.created_by IN (
-        SELECT id FROM consultores WHERE created_by = '${userId}' AND role = 'supervisor'
+      whereClause += ` AND (c.created_by = ? OR c.created_by IN (
+        SELECT id FROM consultores WHERE created_by = ? AND role = 'supervisor'
       ))`;
+      queryParams.push(userId, userId);
     } else if (userRole === 'supervisor' && userId) {
       // Supervisor vê apenas os que ele cadastrou
       console.log('[getVendedores] Aplicando filtro de supervisor');
-      whereClause += ` AND c.created_by = '${userId}'`;
+      whereClause += ` AND c.created_by = ?`;
+      queryParams.push(userId);
     }
     // Diretor vê todos os vendedores (sem filtro adicional)
     
@@ -523,7 +526,7 @@ export const getVendedores = async (req: Request, res: Response) => {
       ${whereClause}
       GROUP BY c.id, c.nome, c.email, c.telefone, c.status_conexao, c.data_criacao, c.ultimo_acesso, c.created_by, c.ativo, criador.nome
       ORDER BY c.nome
-    `);
+    `, queryParams);
     
     const vendedoresFormatados = vendedores.map((v: any) => ({
       id: v.id,
@@ -565,15 +568,18 @@ export const getAdmins = async (req: Request, res: Response) => {
     const userId = usuarioLogado?.id;
     const userRole = usuarioLogado?.role;
     
-    // Construir a query com filtro baseado no role
+    // Construir a query com filtro baseado no role usando prepared statements
     let whereClause = `WHERE c.role IN ('diretor', 'gerente', 'supervisor')`;
+    const queryParams: any[] = [];
     
     // Se for gerente, apenas listar supervisores que ele cadastrou
     if (userRole === 'gerente' && userId) {
-      whereClause = `WHERE c.role = 'supervisor' AND c.created_by = '${userId}'`;
-    } else if (userRole === 'supervisor') {
+      whereClause = `WHERE c.role = 'supervisor' AND c.created_by = ?`;
+      queryParams.push(userId);
+    } else if (userRole === 'supervisor' && userId) {
       // Supervisor não vê outros admins na lista
-      whereClause = `WHERE c.role = 'supervisor' AND c.id = '${userId}'`;
+      whereClause = `WHERE c.role = 'supervisor' AND c.id = ?`;
+      queryParams.push(userId);
     }
     // Diretor vê todos os admins
     
@@ -599,7 +605,7 @@ export const getAdmins = async (req: Request, res: Response) => {
           WHEN 'supervisor' THEN 3
         END,
         c.nome
-    `);
+    `, queryParams);
     
     const adminsFormatados = admins.map((a: any) => ({
       id: a.id,
@@ -640,8 +646,9 @@ export const getIndicadores = async (req: Request, res: Response) => {
     const userId = usuarioLogado?.id;
     const userRole = usuarioLogado?.role;
     
-    // Construir a query com filtro baseado no role
+    // Construir a query com filtro baseado no role usando prepared statements
     let whereClause = '';
+    const queryParams: any[] = [];
     
     // Hierarquia em cascata (mesma lógica dos vendedores):
     // - Diretor vê TODOS
@@ -650,12 +657,14 @@ export const getIndicadores = async (req: Request, res: Response) => {
     
     if (userRole === 'gerente' && userId) {
       // Gerente vê indicadores que ele cadastrou OU que foram cadastrados por supervisores que ele cadastrou
-      whereClause = `WHERE (created_by = '${userId}' OR created_by IN (
-        SELECT id FROM consultores WHERE created_by = '${userId}' AND role = 'supervisor'
+      whereClause = `WHERE (created_by = ? OR created_by IN (
+        SELECT id FROM consultores WHERE created_by = ? AND role = 'supervisor'
       ))`;
+      queryParams.push(userId, userId);
     } else if (userRole === 'supervisor' && userId) {
       // Supervisor vê apenas os que ele cadastrou
-      whereClause = `WHERE created_by = '${userId}'`;
+      whereClause = `WHERE created_by = ?`;
+      queryParams.push(userId);
     }
     // Diretor vê todos os indicadores (sem filtro)
     
@@ -687,7 +696,7 @@ export const getIndicadores = async (req: Request, res: Response) => {
       LEFT JOIN consultores criador ON i.created_by = criador.id
       ${whereClause}
       ORDER BY i.nome
-    `);
+    `, queryParams);
     
     const indicadoresFormatados = indicadores.map((i: any) => ({
       id: i.id,
@@ -1370,13 +1379,16 @@ export const getChatsVendedores = async (req: Request, res: Response) => {
     const userRole = usuarioLogado?.role;
     
     let whereClause = `WHERE (c.role = 'vendedor' OR c.role IS NULL OR c.role = '')`;
+    const queryParams: any[] = [];
     
     if (userRole === 'gerente' && userId) {
-      whereClause += ` AND (c.created_by = '${userId}' OR c.created_by IN (
-        SELECT id FROM consultores WHERE created_by = '${userId}' AND role = 'supervisor'
+      whereClause += ` AND (c.created_by = ? OR c.created_by IN (
+        SELECT id FROM consultores WHERE created_by = ? AND role = 'supervisor'
       ))`;
+      queryParams.push(userId, userId);
     } else if (userRole === 'supervisor' && userId) {
-      whereClause += ` AND c.created_by = '${userId}'`;
+      whereClause += ` AND c.created_by = ?`;
+      queryParams.push(userId);
     }
     
     const [vendedores]: any = await connection.query(`
@@ -1392,7 +1404,7 @@ export const getChatsVendedores = async (req: Request, res: Response) => {
       GROUP BY c.id, c.nome, c.status_conexao, c.sistema_online
       HAVING chats_ativos > 0
       ORDER BY chats_ativos DESC
-    `);
+    `, queryParams);
     
     const chatsVendedores = await Promise.all(
       vendedores.map(async (vendedor: any) => {
