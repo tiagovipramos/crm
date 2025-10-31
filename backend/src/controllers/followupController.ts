@@ -24,6 +24,7 @@ interface FollowUpMensagem {
   sequencia_id: number;
   ordem: number;
   dias_espera: number;
+  hora_envio?: string;
   conteudo: string;
   tipo_mensagem: 'texto' | 'audio' | 'imagem' | 'documento';
   media_url?: string;
@@ -139,9 +140,9 @@ export const criarSequencia = async (req: Request, res: Response) => {
         for (let i = 0; i < mensagens.length; i++) {
           const msg = mensagens[i];
           await connection.query(
-            `INSERT INTO followup_mensagens (sequencia_id, ordem, dias_espera, conteudo, tipo_mensagem, media_url, ativo)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [sequenciaId, i + 1, msg.dias_espera, msg.conteudo, msg.tipo_mensagem || 'texto', msg.media_url || null, msg.ativo !== false]
+            `INSERT INTO followup_mensagens (sequencia_id, ordem, dias_espera, hora_envio, conteudo, tipo_mensagem, media_url, ativo)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [sequenciaId, i + 1, msg.dias_espera, msg.hora_envio || '09:00:00', msg.conteudo, msg.tipo_mensagem || 'texto', msg.media_url || null, msg.ativo !== false]
           );
         }
       }
@@ -205,9 +206,9 @@ export const atualizarSequencia = async (req: Request, res: Response) => {
         for (let i = 0; i < mensagens.length; i++) {
           const msg = mensagens[i];
           await connection.query(
-            `INSERT INTO followup_mensagens (sequencia_id, ordem, dias_espera, conteudo, tipo_mensagem, media_url, ativo)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [id, i + 1, msg.dias_espera, msg.conteudo, msg.tipo_mensagem || 'texto', msg.media_url || null, msg.ativo !== false]
+            `INSERT INTO followup_mensagens (sequencia_id, ordem, dias_espera, hora_envio, conteudo, tipo_mensagem, media_url, ativo)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, i + 1, msg.dias_espera, msg.hora_envio || '09:00:00', msg.conteudo, msg.tipo_mensagem || 'texto', msg.media_url || null, msg.ativo !== false]
           );
         }
       }
@@ -440,15 +441,17 @@ export const processarEnviosProgramados = async (req: Request, res: Response) =>
     console.log('🔄 Processando envios programados...');
 
     // Buscar follow-ups que precisam enviar mensagem
+    // Considera tanto a data quanto a hora de envio configurada
     const [followups] = await pool.query<RowDataPacket[]>(
-      `SELECT fl.*, fm.conteudo, fm.tipo_mensagem, fm.media_url, l.telefone, l.id as lead_id_real,
+      `SELECT fl.*, fm.conteudo, fm.tipo_mensagem, fm.media_url, fm.hora_envio, l.telefone, l.id as lead_id_real,
               c.id as consultor_id, c.sessao_whatsapp
        FROM followup_leads fl
        JOIN followup_mensagens fm ON fl.sequencia_id = fm.sequencia_id AND fm.ordem = fl.mensagem_atual
        JOIN leads l ON fl.lead_id = l.id
        JOIN consultores c ON l.consultor_id = c.id
        WHERE fl.status = 'ativo'
-         AND fl.data_proxima_mensagem <= NOW()
+         AND DATE(fl.data_proxima_mensagem) <= CURDATE()
+         AND TIME(COALESCE(fm.hora_envio, '09:00:00')) <= CURTIME()
          AND c.sessao_whatsapp IS NOT NULL
        LIMIT 50`
     );

@@ -202,6 +202,7 @@ export interface FollowUpMensagem {
   sequencia_id: number;
   ordem: number;
   dias_espera: number;
+  hora_envio?: string; // Horário específico para envio (formato HH:MM ou HH:MM:SS)
   conteudo: string;
   tipo_mensagem: 'texto' | 'audio' | 'imagem' | 'documento';
   media_url?: string;

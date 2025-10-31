@@ -174,8 +174,17 @@ function SequenciaModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
                   Prioridade
+                  <div className="relative group">
+                    <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-50">
+                      <p className="mb-1">Define a ordem de aplicação das sequências.</p>
+                      <p className="mb-1">Quando um lead entra em uma fase, a sequência com <strong>maior prioridade</strong> será aplicada primeiro.</p>
+                      <p>Exemplo: Prioridade 10 executa antes de Prioridade 5.</p>
+                      <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
                 </label>
                 <input
                   type="number"
@@ -183,6 +192,7 @@ function SequenciaModal({
                   onChange={(e) => setPrioridade(parseInt(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#075E54] focus:border-transparent"
                   min={0}
+                  placeholder="Ex: 10"
                 />
               </div>
             </div>
@@ -237,20 +247,37 @@ function SequenciaModal({
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Aguardar (dias)
-                  </label>
-                  <input
-                    type="number"
-                    value={msg.dias_espera}
-                    onChange={(e) => atualizarMensagem(index, 'dias_espera', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#075E54] focus:border-transparent"
-                    min={0}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Dias para aguardar antes de enviar esta mensagem
-                  </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Aguardar (dias)
+                    </label>
+                    <input
+                      type="number"
+                      value={msg.dias_espera}
+                      onChange={(e) => atualizarMensagem(index, 'dias_espera', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#075E54] focus:border-transparent"
+                      min={0}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Dias para aguardar antes de enviar esta mensagem
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hora do Envio
+                    </label>
+                    <input
+                      type="time"
+                      value={msg.hora_envio || '09:00'}
+                      onChange={(e) => atualizarMensagem(index, 'hora_envio', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#075E54] focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Horário específico para enviar (formato 24h)
+                    </p>
+                  </div>
                 </div>
 
                 <div>
