@@ -7,6 +7,7 @@ import path from 'path';
 import { pool } from './config/database';
 import { whatsappService } from './services/whatsappService';
 import { cleanupService } from './services/cleanupService';
+import { followUpScheduler } from './services/followupScheduler';
 
 // Rotas
 import authRoutes from './routes/auth';
@@ -215,6 +216,9 @@ const start = async () => {
 
       // Iniciar limpeza automática de arquivos
       cleanupService.iniciarLimpezaAutomatica();
+
+      // Iniciar scheduler de follow-up
+      followUpScheduler.start();
 
       // Reconectar sessões do WhatsApp após 5 segundos
       setTimeout(async () => {

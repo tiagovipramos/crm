@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../config/db-helper';
+import { aplicarFollowUpAutomatico } from './followupController';
 
 // Função para normalizar telefone para WhatsApp
 // Remove o 9º dígito após o DDD (números novos brasileiros)
@@ -443,6 +444,14 @@ export const updateStatus = async (req: Request, res: Response) => {
 
     console.log('✅ Status atualizado com sucesso');
     console.log('⚡ Triggers do banco atualizarão a indicação automaticamente');
+
+    // 🎯 Aplicar follow-up automático se mudou de fase
+    try {
+      await aplicarFollowUpAutomatico(parseInt(id), status);
+    } catch (followupError) {
+      console.error('⚠️  Erro ao aplicar follow-up automático:', followupError);
+      // Não falha a atualização do lead por causa disso
+    }
 
     // Emitir evento Socket.IO para admins atualizarem em tempo real
     const io = (req.app as any).get('io');

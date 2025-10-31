@@ -441,12 +441,15 @@ export const processarEnviosProgramados = async (req: Request, res: Response) =>
 
     // Buscar follow-ups que precisam enviar mensagem
     const [followups] = await pool.query<RowDataPacket[]>(
-      `SELECT fl.*, fm.conteudo, fm.tipo_mensagem, fm.media_url, l.telefone
+      `SELECT fl.*, fm.conteudo, fm.tipo_mensagem, fm.media_url, l.telefone, l.id as lead_id_real,
+              c.id as consultor_id, c.sessao_whatsapp
        FROM followup_leads fl
        JOIN followup_mensagens fm ON fl.sequencia_id = fm.sequencia_id AND fm.ordem = fl.mensagem_atual
        JOIN leads l ON fl.lead_id = l.id
+       JOIN consultores c ON l.consultor_id = c.id
        WHERE fl.status = 'ativo'
          AND fl.data_proxima_mensagem <= NOW()
+         AND c.sessao_whatsapp IS NOT NULL
        LIMIT 50`
     );
 
@@ -456,14 +459,44 @@ export const processarEnviosProgramados = async (req: Request, res: Response) =>
 
     for (const followup of followups) {
       try {
-        // TODO: Integrar com whatsappService para enviar mensagem real
         console.log(`📤 Enviando mensagem para lead ${followup.lead_id}`);
+
+        // Enviar mensagem via WhatsApp
+        let envioSucesso = false;
+        try {
+          const io = (req.app as any).get('io');
+          
+          // Formatar número de telefone
+          const telefone = followup.telefone.replace(/\D/g, '');
+          const numeroFormatado = telefone.includes('@') ? telefone : `${telefone}@c.us`;
+
+          // Enviar mensagem via Socket.IO para o WhatsApp Service
+          io.to(`consultor_${followup.consultor_id}`).emit('enviar_mensagem_followup', {
+            telefone: numeroFormatado,
+            mensagem: followup.conteudo,
+            leadId: followup.lead_id,
+            tipo: followup.tipo_mensagem
+          });
+
+          // Registrar mensagem no banco
+          await pool.query(
+            `INSERT INTO mensagens (lead_id, consultor_id, conteudo, tipo, remetente, status)
+             VALUES (?, ?, ?, ?, 'consultor', 'enviada')`,
+            [followup.lead_id, followup.consultor_id, followup.conteudo, followup.tipo_mensagem]
+          );
+
+          envioSucesso = true;
+          console.log(`✅ Mensagem enviada com sucesso para lead ${followup.lead_id}`);
+        } catch (whatsappError) {
+          console.error(`❌ Erro ao enviar via WhatsApp:`, whatsappError);
+          envioSucesso = false;
+        }
 
         // Registrar no histórico
         await pool.query(
           `INSERT INTO followup_historico (followup_lead_id, mensagem_id, lead_id, status_envio)
-           VALUES (?, (SELECT id FROM followup_mensagens WHERE sequencia_id = ? AND ordem = ?), ?, 'sucesso')`,
-          [followup.id, followup.sequencia_id, followup.mensagem_atual, followup.lead_id]
+           VALUES (?, (SELECT id FROM followup_mensagens WHERE sequencia_id = ? AND ordem = ?), ?, ?)`,
+          [followup.id, followup.sequencia_id, followup.mensagem_atual, followup.lead_id, envioSucesso ? 'sucesso' : 'falha']
         );
 
         // Buscar próxima mensagem
