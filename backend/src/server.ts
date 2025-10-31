@@ -198,6 +198,10 @@ const start = async () => {
     await pool.query('SELECT NOW()');
     console.log('✅ Banco de dados conectado');
 
+    // ✅ Bug #13: Limpar status online de todos consultores ao reiniciar servidor
+    await pool.query('UPDATE consultores SET sistema_online = FALSE');
+    console.log('🧹 Status online limpo para todos consultores');
+
     httpServer.listen(PORT, () => {
       console.log('');
       console.log('🚀 ============================================');
