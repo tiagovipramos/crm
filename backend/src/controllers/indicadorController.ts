@@ -536,8 +536,9 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
     // Se houver consultores online, criar o lead automaticamente
     if (consultorId) {
 
-      // Criar lead no CRM - Se não tem WhatsApp, vai para "Sem WhatsApp", senão vai para "Indicação"
-      const statusInicial = validacao.existe ? 'indicacao' : 'sem_whatsapp';
+      // Criar lead no CRM - Se formato válido, vai para "Indicação", senão "Sem WhatsApp"
+      // ✅ MUDANÇA: Confiar no formato ao invés da verificação Baileys (muitos falsos negativos)
+      const statusInicial = validacao.valido ? 'indicacao' : 'sem_whatsapp';
       await query(
         `INSERT INTO leads (
           nome, telefone, origem, status, mensagens_nao_lidas, 
@@ -578,8 +579,9 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
         }
 
         // 📱 Enviar mensagem automática de boas-vindas via WhatsApp
-        // ⚠️ Só enviar se o número tiver WhatsApp validado E o consultor estiver online
-        if (statusConexao === 'online' && validacao.existe) {
+        // ⚠️ Só enviar se o formato for válido E o consultor estiver online
+        // Se o número não tiver WhatsApp, a mensagem falhará e o consultor será notificado
+        if (statusConexao === 'online' && validacao.valido) {
           try {
             // Buscar nome do indicador
             const indicadorResult = await query(
@@ -613,9 +615,9 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
             // Não bloquear a criação da indicação se o WhatsApp falhar
             mensagem = 'Indicação criada com sucesso! O lead foi enviado para o CRM.';
           }
-        } else if (!validacao.existe) {
-          console.log('⚠️ Número não possui WhatsApp. Lead criado no CRM mas mensagem não será enviada.');
-          mensagem = 'Indicação criada com sucesso! O lead foi enviado para o CRM (número sem WhatsApp - follow-up manual necessário).';
+        } else if (!validacao.valido) {
+          console.log('⚠️ Formato de número inválido. Lead criado no CRM mas mensagem não será enviada.');
+          mensagem = 'Indicação criada com sucesso! O lead foi enviado para o CRM (formato inválido - follow-up manual necessário).';
         } else {
           console.log('⚠️ WhatsApp do consultor não está conectado. Mensagem de boas-vindas não será enviada.');
           mensagem = 'Indicação criada com sucesso! O lead foi enviado para o CRM.';
