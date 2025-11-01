@@ -337,11 +337,11 @@ export const getDashboard = async (req: IndicadorAuthRequest, res: Response) => 
       },
       indicacoesRecentes: indicacoesRecentes.rows.map((ind: any) => ({
         id: ind.id,
-        nomeIndicado: ind.nome_indicado,
-        telefoneIndicado: ind.telefone_indicado,
+        nomeIndicado: ind.nome_cliente,
+        telefoneIndicado: ind.telefone,
         status: ind.status,
-        comissaoResposta: parseFloat(ind.comissao_resposta || 0),
-        comissaoVenda: parseFloat(ind.comissao_venda || 0),
+        comissaoResposta: parseFloat(ind.valor_comissao || 0),
+        comissaoVenda: 0,
         dataIndicacao: ind.data_indicacao,
         dataResposta: ind.data_resposta,
         dataConversao: ind.data_conversao,
@@ -445,7 +445,7 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
     // Verificar se o telefone já foi indicado por QUALQUER indicador no sistema
     const indicacaoExistente = await query(
       `SELECT id, indicador_id FROM indicacoes 
-       WHERE telefone_indicado = ?`,
+       WHERE telefone = ?`,
       [validacao.telefone]
     );
 
@@ -459,15 +459,15 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
     // Criar indicação
     const result = await query(
       `INSERT INTO indicacoes (
-        id, indicador_id, nome_indicado, telefone_indicado, 
-        whatsapp_validado, status, data_indicacao, data_validacao_whatsapp
-      ) VALUES (UUID(), ?, ?, ?, ?, 'pendente', NOW(), NOW())`,
-      [indicadorId, nomeIndicado, validacao.telefone, validacao.existe]
+        id, indicador_id, nome_cliente, telefone, 
+        status, data_indicacao
+      ) VALUES (UUID(), ?, ?, ?, 'pendente', NOW())`,
+      [indicadorId, nomeIndicado, validacao.telefone]
     );
 
     // Buscar indicação criada
     const indicacaoResult = await query(
-      'SELECT * FROM indicacoes WHERE indicador_id = ? AND telefone_indicado = ? ORDER BY data_indicacao DESC LIMIT 1',
+      'SELECT * FROM indicacoes WHERE indicador_id = ? AND telefone = ? ORDER BY data_indicacao DESC LIMIT 1',
       [indicadorId, validacao.telefone]
     );
 
@@ -515,8 +515,8 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
         message: 'Indicação criada com sucesso! Aguardando disponibilidade de consultores com WhatsApp conectado para envio ao CRM.',
         indicacao: {
           id: indicacao.id,
-          nomeIndicado: indicacao.nome_indicado,
-          telefoneIndicado: indicacao.telefone_indicado,
+          nomeIndicado: indicacao.nome_cliente,
+          telefoneIndicado: indicacao.telefone,
           status: 'pendente',
           dataIndicacao: indicacao.data_indicacao
         }
@@ -639,8 +639,8 @@ export const criarIndicacao = async (req: IndicadorAuthRequest, res: Response) =
       message: mensagem,
       indicacao: {
         id: indicacao.id,
-        nomeIndicado: indicacao.nome_indicado,
-        telefoneIndicado: indicacao.telefone_indicado,
+        nomeIndicado: indicacao.nome_cliente,
+        telefoneIndicado: indicacao.telefone,
         status: leadCriado ? 'enviado_crm' : 'pendente',
         dataIndicacao: indicacao.data_indicacao
       }
@@ -718,12 +718,12 @@ export const getIndicacoes = async (req: IndicadorAuthRequest, res: Response) =>
 
     const indicacoes = result.rows.map((ind: any) => ({
       id: ind.id,
-      nomeIndicado: ind.nome_indicado,
-      telefoneIndicado: ind.telefone_indicado,
-      whatsappValidado: ind.whatsapp_validado,
+      nomeIndicado: ind.nome_cliente,
+      telefoneIndicado: ind.telefone,
+      whatsappValidado: false,
       status: ind.status,
-      comissaoResposta: parseFloat(ind.comissao_resposta || 0),
-      comissaoVenda: parseFloat(ind.comissao_venda || 0),
+      comissaoResposta: parseFloat(ind.valor_comissao || 0),
+      comissaoVenda: 0,
       dataIndicacao: ind.data_indicacao,
       dataResposta: ind.data_resposta,
       dataConversao: ind.data_conversao,
@@ -913,16 +913,16 @@ export const getIndicacao = async (req: IndicadorAuthRequest, res: Response) => 
 
     res.json({
       id: ind.id,
-      nomeIndicado: ind.nome_indicado,
-      telefoneIndicado: ind.telefone_indicado,
-      whatsappValidado: ind.whatsapp_validado,
+      nomeIndicado: ind.nome_cliente,
+      telefoneIndicado: ind.telefone,
+      whatsappValidado: false,
       status: ind.status,
-      comissaoResposta: parseFloat(ind.comissao_resposta || 0),
-      comissaoVenda: parseFloat(ind.comissao_venda || 0),
+      comissaoResposta: parseFloat(ind.valor_comissao || 0),
+      comissaoVenda: 0,
       dataIndicacao: ind.data_indicacao,
       dataResposta: ind.data_resposta,
       dataConversao: ind.data_conversao,
-      dataValidacaoWhatsapp: ind.data_validacao_whatsapp,
+      dataValidacaoWhatsapp: null,
       leadNome: ind.lead_nome,
       leadStatus: ind.lead_status,
       leadEmail: ind.lead_email,
