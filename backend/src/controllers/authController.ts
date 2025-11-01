@@ -19,7 +19,7 @@ export const login = async (req: Request, res: Response) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Credenciais inválidas' });
+      return res.status(401).json({ error: 'Usuário ou Senha incorretos.' });
     }
 
     const consultor = result.rows[0];
@@ -33,7 +33,7 @@ export const login = async (req: Request, res: Response) => {
     const senhaValida = await bcrypt.compare(senha, consultor.senha);
 
     if (!senhaValida) {
-      return res.status(401).json({ error: 'Credenciais inválidas' });
+      return res.status(401).json({ error: 'Usuário ou Senha incorretos.' });
     }
 
     // Atualizar último acesso

@@ -28,7 +28,7 @@ export const loginAdmin = async (req: Request, res: Response) => {
 
       if (admins.length === 0) {
         connection.release();
-        return res.status(401).json({ error: 'Email ou senha inválidos' });
+        return res.status(401).json({ error: 'Usuário ou Senha incorretos.' });
       }
 
       const admin = admins[0];
@@ -44,7 +44,7 @@ export const loginAdmin = async (req: Request, res: Response) => {
 
       if (!senhaValida) {
         connection.release();
-        return res.status(401).json({ error: 'Email ou senha inválidos' });
+        return res.status(401).json({ error: 'Usuário ou Senha incorretos.' });
       }
 
       // Atualizar último acesso
@@ -1103,10 +1103,14 @@ export const deletarIndicador = async (req: Request, res: Response) => {
     const connection = await pool.getConnection();
     
     try {
-      // ✅ CORREÇÃO: Remover referência através da tabela indicacoes
-      await connection.query('UPDATE leads SET indicacao_id = NULL WHERE indicacao_id IN (SELECT id FROM indicacoes WHERE indicador_id = ?)', [id]);
+      // Remover referências nas tabelas relacionadas
+      // Limpar a coluna indicador_id dos leads relacionados
+      await connection.query('UPDATE leads SET indicador_id = NULL WHERE indicador_id = ?', [id]);
+      
+      // Deletar saques deste indicador
       await connection.query('DELETE FROM saques_indicador WHERE indicador_id = ?', [id]);
       
+      // Finalmente, deletar o indicador
       const [result]: any = await connection.query('DELETE FROM indicadores WHERE id = ?', [id]);
       
       connection.release();

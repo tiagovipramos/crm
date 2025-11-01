@@ -121,8 +121,8 @@ export const login = async (req: IndicadorAuthRequest, res: Response) => {
 
     if (result.rows.length === 0) {
       return res.status(401).json({ 
-        error: 'Credenciais inválidas',
-        message: 'Email ou senha incorretos'
+        error: 'Usuário ou Senha incorretos.',
+        message: 'Usuário ou Senha incorretos.'
       });
     }
 
@@ -141,8 +141,8 @@ export const login = async (req: IndicadorAuthRequest, res: Response) => {
 
     if (!senhaCorreta) {
       return res.status(401).json({ 
-        error: 'Credenciais inválidas',
-        message: 'Email ou senha incorretos'
+        error: 'Usuário ou Senha incorretos.',
+        message: 'Usuário ou Senha incorretos.'
       });
     }
 
