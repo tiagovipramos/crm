@@ -3,9 +3,9 @@
 -- Tipo: MODIFY (seguro - não remove dados)
 -- Data: 2025-11-01
 
--- Corrigir collation das colunas UUID em indicadores
+-- Corrigir collation das colunas UUID em indicadores (sem redefinir PRIMARY KEY)
 ALTER TABLE indicadores
-  MODIFY COLUMN id VARCHAR(36) COLLATE utf8mb4_unicode_ci PRIMARY KEY;
+  MODIFY COLUMN id VARCHAR(36) COLLATE utf8mb4_unicode_ci NOT NULL;
 
 -- Corrigir collation das colunas UUID em indicacoes
 ALTER TABLE indicacoes 
@@ -13,9 +13,9 @@ ALTER TABLE indicacoes
   MODIFY COLUMN lead_id VARCHAR(36) COLLATE utf8mb4_unicode_ci NULL;
 
 -- Verificar se existem outras colunas que precisam de ajuste
--- Se a tabela leads também tiver problemas, corrigir:
+-- Se a tabela leads também tiver problemas, corrigir (sem redefinir PRIMARY KEY):
 ALTER TABLE leads
-  MODIFY COLUMN id VARCHAR(36) COLLATE utf8mb4_unicode_ci PRIMARY KEY;
+  MODIFY COLUMN id VARCHAR(36) COLLATE utf8mb4_unicode_ci NOT NULL;
 
 -- Corrigir coluna indicador_id em leads se existir
 ALTER TABLE leads
