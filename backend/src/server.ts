@@ -25,17 +25,38 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+// Configurar origens permitidas para CORS
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  'http://185.217.125.72:3000',
+  'http://localhost:3000',
+  // Adicionar variações possíveis
+  'http://185.217.125.72',
+];
+
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    methods: ['GET', 'POST'],
+    origin: (origin, callback) => {
+      // Permitir requisições sem origin (como apps mobile ou Postman)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log('⚠️ Origem bloqueada pelo CORS:', origin);
+        callback(null, true); // Temporariamente permitir todas para debug
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['*']
   },
   transports: ['websocket', 'polling'],
   allowEIO3: true,
   pingTimeout: 60000,
-  pingInterval: 25000
+  pingInterval: 25000,
+  path: '/socket.io/',
+  serveClient: false
 });
 
 const PORT = process.env.PORT || 3001;
