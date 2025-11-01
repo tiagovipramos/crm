@@ -115,11 +115,6 @@ ALTER TABLE leads
 ALTER TABLE consultores
   MODIFY COLUMN id VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
 
--- TABELA: saldos_indicadores
-ALTER TABLE saldos_indicadores
-  MODIFY COLUMN id VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  MODIFY COLUMN indicador_id VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
-
 -- TABELA: transacoes_indicador
 ALTER TABLE transacoes_indicador
   MODIFY COLUMN id VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -145,11 +140,6 @@ ALTER TABLE indicacoes
 ALTER TABLE indicacoes 
   ADD CONSTRAINT indicacoes_ibfk_2 
   FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE;
-
--- FK: saldos_indicadores -> indicadores
-ALTER TABLE saldos_indicadores 
-  ADD CONSTRAINT saldos_indicadores_ibfk_1 
-  FOREIGN KEY (indicador_id) REFERENCES indicadores(id) ON DELETE CASCADE;
 
 -- FK: leads -> consultores
 ALTER TABLE leads 
