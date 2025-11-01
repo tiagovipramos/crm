@@ -143,9 +143,10 @@ export const createLead = async (req: Request, res: Response) => {
     const result = await query(
       `INSERT INTO leads (
         id, nome, telefone, email, cidade, modelo_veiculo, placa_veiculo, 
-        ano_veiculo, origem, status, consultor_id, observacoes,
-        mensagens_nao_lidas, data_criacao, data_atualizacao
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'novo', ?, ?, 0, NOW(), NOW())`,
+        ano_veiculo, origem, status, consultor_id, indicador_id, indicacao_id,
+        comissao_indicador, observacoes, notas_internas, ultima_mensagem, 
+        mensagens_nao_lidas, tags, data_criacao, data_atualizacao
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'novo', ?, NULL, NULL, 0.00, ?, NULL, NULL, 0, NULL, NOW(), NOW())`,
       [newLeadId, nome, telefoneNormalizado, email, cidade, modeloVeiculo, placaVeiculo, anoVeiculo, origem || 'Manual', consultorId, observacoes]
     );
 
