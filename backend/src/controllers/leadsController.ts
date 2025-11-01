@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { query } from '../config/db-helper';
 import { aplicarFollowUpAutomatico } from './followupController';
+import { v4 as uuidv4 } from 'uuid';
 
 // Função para normalizar telefone para WhatsApp
 // Remove o 9º dígito após o DDD (números novos brasileiros)
@@ -136,17 +137,19 @@ export const createLead = async (req: Request, res: Response) => {
       });
     }
     
+    // Gerar UUID para o novo lead
+    const newLeadId = uuidv4();
+    
     const result = await query(
       `INSERT INTO leads (
-        nome, telefone, email, cidade, modelo_veiculo, placa_veiculo, 
+        id, nome, telefone, email, cidade, modelo_veiculo, placa_veiculo, 
         ano_veiculo, origem, status, consultor_id, observacoes,
         mensagens_nao_lidas, data_criacao, data_atualizacao
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'novo', ?, ?, 0, NOW(), NOW())`,
-      [nome, telefoneNormalizado, email, cidade, modeloVeiculo, placaVeiculo, anoVeiculo, origem || 'Manual', consultorId, observacoes]
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'novo', ?, ?, 0, NOW(), NOW())`,
+      [newLeadId, nome, telefoneNormalizado, email, cidade, modeloVeiculo, placaVeiculo, anoVeiculo, origem || 'Manual', consultorId, observacoes]
     );
 
     // Buscar lead criado para retornar com todos os campos
-    const newLeadId = result.insertId;
     const leadResult = await query('SELECT * FROM leads WHERE id = ?', [newLeadId]);
     
     res.status(201).json(toCamelCase(leadResult.rows[0]));
