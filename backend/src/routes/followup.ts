@@ -16,6 +16,7 @@ import {
   obterHistoricoLead
 } from '../controllers/followupController';
 import { authMiddleware } from '../middleware/auth';
+import { internalMiddleware } from '../middleware/internal';
 
 const router = express.Router();
 
@@ -111,9 +112,9 @@ router.get('/leads/:leadId/historico', authMiddleware, obterHistoricoLead);
 /**
  * @route   POST /api/followup/processar
  * @desc    Processar envios programados (chamado por cron job)
- * @access  Private
+ * @access  Internal
  */
-router.post('/processar', authMiddleware, processarEnviosProgramados);
+router.post('/processar', internalMiddleware, processarEnviosProgramados);
 
 // ============================================
 // ROTAS DE ESTATÍSTICAS
