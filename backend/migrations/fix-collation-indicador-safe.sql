@@ -14,18 +14,80 @@ SELECT 'Iniciando correção de collation...' as status;
 -- ============================================
 
 -- Remover FKs da tabela transacoes_indicador
-ALTER TABLE transacoes_indicador DROP FOREIGN KEY IF EXISTS transacoes_indicador_ibfk_1;
+SET @query = (SELECT IF(
+    COUNT(*) > 0,
+    'ALTER TABLE transacoes_indicador DROP FOREIGN KEY transacoes_indicador_ibfk_1',
+    'SELECT "FK transacoes_indicador_ibfk_1 não existe" as info'
+) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+WHERE CONSTRAINT_SCHEMA = 'protecar_crm' 
+AND TABLE_NAME = 'transacoes_indicador' 
+AND CONSTRAINT_NAME = 'transacoes_indicador_ibfk_1');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Remover FKs da tabela indicacoes
-ALTER TABLE indicacoes DROP FOREIGN KEY IF EXISTS indicacoes_ibfk_1;
-ALTER TABLE indicacoes DROP FOREIGN KEY IF EXISTS indicacoes_ibfk_2;
+SET @query = (SELECT IF(
+    COUNT(*) > 0,
+    'ALTER TABLE indicacoes DROP FOREIGN KEY indicacoes_ibfk_1',
+    'SELECT "FK indicacoes_ibfk_1 não existe" as info'
+) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+WHERE CONSTRAINT_SCHEMA = 'protecar_crm' 
+AND TABLE_NAME = 'indicacoes' 
+AND CONSTRAINT_NAME = 'indicacoes_ibfk_1');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @query = (SELECT IF(
+    COUNT(*) > 0,
+    'ALTER TABLE indicacoes DROP FOREIGN KEY indicacoes_ibfk_2',
+    'SELECT "FK indicacoes_ibfk_2 não existe" as info'
+) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+WHERE CONSTRAINT_SCHEMA = 'protecar_crm' 
+AND TABLE_NAME = 'indicacoes' 
+AND CONSTRAINT_NAME = 'indicacoes_ibfk_2');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Remover FKs da tabela saldos_indicadores
-ALTER TABLE saldos_indicadores DROP FOREIGN KEY IF EXISTS saldos_indicadores_ibfk_1;
+SET @query = (SELECT IF(
+    COUNT(*) > 0,
+    'ALTER TABLE saldos_indicadores DROP FOREIGN KEY saldos_indicadores_ibfk_1',
+    'SELECT "FK saldos_indicadores_ibfk_1 não existe" as info'
+) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+WHERE CONSTRAINT_SCHEMA = 'protecar_crm' 
+AND TABLE_NAME = 'saldos_indicadores' 
+AND CONSTRAINT_NAME = 'saldos_indicadores_ibfk_1');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Remover FKs da tabela leads (relacionadas a indicadores)
-ALTER TABLE leads DROP FOREIGN KEY IF EXISTS leads_ibfk_1;
-ALTER TABLE leads DROP FOREIGN KEY IF EXISTS leads_ibfk_2;
+SET @query = (SELECT IF(
+    COUNT(*) > 0,
+    'ALTER TABLE leads DROP FOREIGN KEY leads_ibfk_1',
+    'SELECT "FK leads_ibfk_1 não existe" as info'
+) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+WHERE CONSTRAINT_SCHEMA = 'protecar_crm' 
+AND TABLE_NAME = 'leads' 
+AND CONSTRAINT_NAME = 'leads_ibfk_1');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @query = (SELECT IF(
+    COUNT(*) > 0,
+    'ALTER TABLE leads DROP FOREIGN KEY leads_ibfk_2',
+    'SELECT "FK leads_ibfk_2 não existe" as info'
+) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+WHERE CONSTRAINT_SCHEMA = 'protecar_crm' 
+AND TABLE_NAME = 'leads' 
+AND CONSTRAINT_NAME = 'leads_ibfk_2');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SELECT 'FKs removidas com sucesso' as status;
 
