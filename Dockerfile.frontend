@@ -1,0 +1,97 @@
+# ==============================================
+# MULTI-STAGE BUILD - FRONTEND CRM PROTECAR
+# ==============================================
+# Stage 1: Base - Dependências comuns
+# Stage 2: Development - Para desenvolvimento
+# Stage 3: Builder - Build do Next.js
+# Stage 4: Production - Imagem final otimizada
+
+# ==============================================
+# STAGE 1: BASE
+# ==============================================
+FROM node:20-alpine AS base
+
+# Instalar dependências necessárias
+RUN apk add --no-cache libc6-compat wget
+
+WORKDIR /app
+
+# Copiar package files
+COPY package*.json ./
+
+# ==============================================
+# STAGE 2: DEVELOPMENT
+# ==============================================
+FROM base AS development
+
+# Instalar todas as dependências
+RUN npm ci
+
+# Copiar código fonte
+COPY . .
+
+# Expor porta
+EXPOSE 3000
+
+# Comando para desenvolvimento (com hot reload)
+CMD ["npm", "run", "dev"]
+
+# ==============================================
+# STAGE 3: BUILDER
+# ==============================================
+FROM base AS builder
+
+# Instalar dependências
+RUN npm ci
+
+# Copiar código fonte
+COPY . .
+
+# Definir variáveis de ambiente para build
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build do Next.js
+RUN npm run build
+
+# Limpar devDependencies
+RUN npm prune --production
+
+# ==============================================
+# STAGE 4: PRODUCTION
+# ==============================================
+FROM node:20-alpine AS production
+
+# Instalar apenas dependências runtime
+RUN apk add --no-cache \
+    wget \
+    && addgroup -g 1001 -S nodejs \
+    && adduser -S nextjs -u 1001
+
+WORKDIR /app
+
+# Copiar arquivos necessários do builder
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/next.config.* ./
+
+# Definir variáveis de ambiente
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+
+# Usar usuário não-root
+USER nextjs
+
+# Expor porta
+EXPOSE 3000
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
+
+# Comando para produção
+CMD ["npm", "start"]

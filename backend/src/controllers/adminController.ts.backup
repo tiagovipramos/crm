@@ -1,0 +1,891 @@
+import { Request, Response } from 'express';
+import { pool } from '../config/database';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import bcrypt from 'bcryptjs';
+
+// =========================================
+// ESTATÍSTICAS DO CRM
+// =========================================
+export const getEstatisticasCRM = async (req: Request, res: Response) => {
+  try {
+    const connection = await pool.getConnection();
+    
+    try {
+      // Obter faturamento total (vamos considerar conversões com valor médio de R$ 2.200)
+      const [conversoes]: any = await connection.query(`
+        SELECT COUNT(*) as total_conversoes
+        FROM leads 
+        WHERE status = 'convertido'
+      `);
+      
+      const totalConversoes = conversoes[0]?.total_conversoes || 0;
+      const valorMedioVenda = 2200; // R$ 2.200 por venda
+      const faturamentoTotal = totalConversoes * valorMedioVenda;
+      
+      // Conversões do mês atual
+      const [conversoesMes]: any = await connection.query(`
+        SELECT COUNT(*) as conversoes_mes
+        FROM leads 
+        WHERE status = 'convertido' 
+        AND MONTH(data_atualizacao) = MONTH(CURRENT_DATE())
+        AND YEAR(data_atualizacao) = YEAR(CURRENT_DATE())
+      `);
+      
+      const conversoesMesAtual = conversoesMes[0]?.conversoes_mes || 0;
+      const faturamentoMesAtual = conversoesMesAtual * valorMedioVenda;
+      
+      // Leads totais e ativos
+      const [leads]: any = await connection.query(`
+        SELECT 
+          COUNT(*) as total_leads,
+          SUM(CASE WHEN status NOT IN ('convertido', 'perdido') THEN 1 ELSE 0 END) as leads_ativos
+        FROM leads
+      `);
+      
+      const leadsTotal = leads[0]?.total_leads || 0;
+      const leadsAtivos = leads[0]?.leads_ativos || 0;
+      
+      // Taxa de conversão
+      const taxaConversao = leadsTotal > 0 ? (totalConversoes / leadsTotal) * 100 : 0;
+      
+      // Tempo médio de fechamento (em dias)
+      const [tempoMedio]: any = await connection.query(`
+        SELECT AVG(DATEDIFF(data_atualizacao, data_criacao)) as tempo_medio
+        FROM leads 
+        WHERE status = 'convertido'
+      `);
+      
+      const tempoMedioFechamento = tempoMedio[0]?.tempo_medio || 0;
+      
+      // Meta mensal (R$ 50.000)
+      const metaMensal = 50000;
+      const metaAtingida = metaMensal > 0 ? (faturamentoMesAtual / metaMensal) * 100 : 0;
+      
+      connection.release();
+      
+      res.json({
+        faturamentoTotal,
+        faturamentoMesAtual,
+        leadsTotal,
+        leadsAtivos,
+        conversoes: totalConversoes,
+        conversoesMes: conversoesMesAtual,
+        taxaConversao: parseFloat(taxaConversao.toFixed(1)),
+        tempoMedioFechamento: parseFloat(tempoMedioFechamento.toFixed(1)),
+        metaMensal,
+        metaAtingida: parseFloat(metaAtingida.toFixed(1))
+      });
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas CRM:', error);
+    res.status(500).json({ message: 'Erro ao buscar estatísticas' });
+  }
+};
+
+// =========================================
+// TOP PERFORMERS (VENDEDORES)
+// =========================================
+export const getTopPerformers = async (req: Request, res: Response) => {
+  try {
+    const connection = await pool.getConnection();
+    
+    try {
+      const [vendedores]: any = await connection.query(`
+        SELECT 
+          c.id,
+          c.nome,
+          COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) as vendas,
+          COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) * 2200 as faturamento,
+          CASE 
+            WHEN COUNT(l.id) > 0 
+            THEN (COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) / COUNT(l.id)) * 100 
+            ELSE 0 
+          END as taxa_conversao
+        FROM consultores c
+        LEFT JOIN leads l ON l.consultor_id = c.id
+        GROUP BY c.id, c.nome
+        HAVING vendas > 0
+        ORDER BY faturamento DESC
+        LIMIT 5
+      `);
+      
+      const topPerformers = vendedores.map((v: any, index: number) => ({
+        id: v.id,
+        nome: v.nome,
+        vendas: v.vendas || 0,
+        faturamento: parseFloat(v.faturamento) || 0,
+        taxaConversao: parseFloat(v.taxa_conversao?.toFixed(1)) || 0,
+        posicao: index + 1
+      }));
+      
+      connection.release();
+      res.json(topPerformers);
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao buscar top performers:', error);
+    res.status(500).json({ message: 'Erro ao buscar top performers' });
+  }
+};
+
+// =========================================
+// DISTRIBUIÇÃO DO FUNIL
+// =========================================
+// DELETAR VENDEDOR
+// =========================================
+export const deletarVendedor = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const connection = await pool.getConnection();
+    
+    try {
+      // Primeiro, remover referências em outras tabelas
+      await connection.query('UPDATE leads SET consultor_id = NULL WHERE consultor_id = ?', [id]);
+      await connection.query('UPDATE mensagens SET consultor_id = NULL WHERE consultor_id = ?', [id]);
+      
+      // Deletar o vendedor
+      const [result]: any = await connection.query('DELETE FROM consultores WHERE id = ?', [id]);
+      
+      connection.release();
+      
+      if (result.affectedRows > 0) {
+        res.json({ message: 'Vendedor deletado com sucesso' });
+      } else {
+        res.status(404).json({ message: 'Vendedor não encontrado' });
+      }
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error: any) {
+    console.error('Erro ao deletar vendedor:', error);
+    res.status(500).json({ message: 'Erro ao deletar vendedor', error: error.message });
+  }
+};
+      
+      const distribuicaoFunil = distribuicao.map((d: any) => ({
+        etapa: etapasMap[d.status]?.etapa || d.status,
+        quantidade: d.quantidade || 0,
+        cor: etapasMap[d.status]?.cor || '#64748b'
+      }));
+      
+      connection.release();
+      res.json(distribuicaoFunil);
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao buscar distribuição do funil:', error);
+    res.status(500).json({ message: 'Erro ao buscar distribuição do funil' });
+  }
+};
+
+// =========================================
+// ESTATÍSTICAS DE INDICAÇÕES
+// =========================================
+export const getEstatisticasIndicacao = async (req: Request, res: Response) => {
+  try {
+    const connection = await pool.getConnection();
+    
+    try {
+      // Total pago e bloqueado
+      const [totais]: any = await connection.query(`
+        SELECT 
+          SUM(saldo_disponivel) as total_disponivel,
+          SUM(saldo_bloqueado) as total_bloqueado,
+          SUM(saldo_perdido) as total_perdido,
+          SUM(total_indicacoes) as total_indicacoes,
+          SUM(indicacoes_respondidas) as total_respondidas,
+          SUM(indicacoes_convertidas) as total_convertidas
+        FROM indicadores
+      `);
+      
+      const totalPago = parseFloat(totais[0]?.total_disponivel || 0);
+      const totalBloqueado = parseFloat(totais[0]?.total_bloqueado || 0);
+      const totalPerdido = parseFloat(totais[0]?.total_perdido || 0);
+      const indicacoesTotal = totais[0]?.total_indicacoes || 0;
+      const indicacoesRespondidas = totais[0]?.total_respondidas || 0;
+      const indicacoesConvertidas = totais[0]?.total_convertidas || 0;
+      
+      // Taxa de conversão
+      const taxaConversao = indicacoesTotal > 0 
+        ? (indicacoesConvertidas / indicacoesTotal) * 100 
+        : 0;
+      
+      // Saques
+      const [saques]: any = await connection.query(`
+        SELECT 
+          SUM(CASE WHEN status IN ('aprovado', 'pago') THEN 1 ELSE 0 END) as aprovados,
+          SUM(CASE WHEN status = 'solicitado' THEN 1 ELSE 0 END) as pendentes,
+          SUM(CASE WHEN status = 'rejeitado' THEN 1 ELSE 0 END) as rejeitados
+        FROM saques_indicador
+      `);
+      
+      connection.release();
+      
+      res.json({
+        totalPago,
+        totalBloqueado,
+        totalPerdido,
+        indicacoesTotal,
+        indicacoesRespondidas,
+        indicacoesConvertidas,
+        taxaConversao: parseFloat(taxaConversao.toFixed(1)),
+        saquesAprovados: saques[0]?.aprovados || 0,
+        saquesPendentes: saques[0]?.pendentes || 0,
+        saquesRejeitados: saques[0]?.rejeitados || 0
+      });
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas de indicação:', error);
+    res.status(500).json({ message: 'Erro ao buscar estatísticas de indicação' });
+  }
+};
+
+// =========================================
+// TOP INDICADORES
+// =========================================
+export const getTopIndicadores = async (req: Request, res: Response) => {
+  try {
+    const connection = await pool.getConnection();
+    
+    try {
+      const [indicadores]: any = await connection.query(`
+        SELECT 
+          id,
+          nome,
+          total_indicacoes as indicacoes,
+          indicacoes_convertidas as convertidas,
+          indicacoes_convertidas * 2200 as faturamento_gerado,
+          (saldo_disponivel + saldo_bloqueado) as comissoes_recebidas
+        FROM indicadores
+        WHERE total_indicacoes > 0
+        ORDER BY comissoes_recebidas DESC
+        LIMIT 5
+      `);
+      
+      const topIndicadores = indicadores.map((i: any, index: number) => ({
+        id: i.id,
+        nome: i.nome,
+        indicacoes: i.indicacoes || 0,
+        convertidas: i.convertidas || 0,
+        faturamentoGerado: parseFloat(i.faturamento_gerado) || 0,
+        comissoesRecebidas: parseFloat(i.comissoes_recebidas) || 0,
+        posicao: index + 1
+      }));
+      
+      connection.release();
+      res.json(topIndicadores);
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao buscar top indicadores:', error);
+    res.status(500).json({ message: 'Erro ao buscar top indicadores' });
+  }
+};
+
+// =========================================
+// ALERTAS
+// =========================================
+export const getAlertas = async (req: Request, res: Response) => {
+  try {
+    const connection = await pool.getConnection();
+    
+    try {
+      const alertas = [];
+      
+      // Alerta 1: Leads sem resposta há mais de 3 dias
+      const [leadsSemResposta]: any = await connection.query(`
+        SELECT COUNT(*) as total
+        FROM leads
+        WHERE status = 'novo'
+        AND DATEDIFF(CURRENT_DATE(), data_criacao) > 3
+      `);
+      
+      if (leadsSemResposta[0]?.total > 0) {
+        alertas.push({
+          id: 1,
+          tipo: 'warning',
+          titulo: 'Leads sem resposta',
+          mensagem: `${leadsSemResposta[0].total} leads sem resposta há mais de 3 dias`,
+          data: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          lido: false,
+          link: '/admin?view=relatorios-crm'
+        });
+      }
+      
+      // Alerta 2: Propostas pendentes há mais de 7 dias
+      const [propostasPendentes]: any = await connection.query(`
+        SELECT COUNT(*) as total
+        FROM leads
+        WHERE status = 'aguardando'
+        AND DATEDIFF(CURRENT_DATE(), data_atualizacao) > 7
+      `);
+      
+      if (propostasPendentes[0]?.total > 0) {
+        alertas.push({
+          id: 2,
+          tipo: 'warning',
+          titulo: 'Propostas pendentes',
+          mensagem: `${propostasPendentes[0].total} propostas aguardando retorno há mais de 7 dias`,
+          data: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          lido: false,
+          link: '/admin?view=relatorios-crm'
+        });
+      }
+      
+      // Alerta 3: Saques pendentes
+      const [saquesPendentes]: any = await connection.query(`
+        SELECT COUNT(*) as total
+        FROM saques_indicador
+        WHERE status = 'solicitado'
+      `);
+      
+      if (saquesPendentes[0]?.total > 0) {
+        alertas.push({
+          id: 3,
+          tipo: 'info',
+          titulo: 'Saques pendentes',
+          mensagem: `${saquesPendentes[0].total} solicitações de saque aguardando aprovação`,
+          data: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          lido: false,
+          link: '/admin?view=financeiro'
+        });
+      }
+      
+      // Alerta 4: Indicadores inativos
+      const [indicadoresInativos]: any = await connection.query(`
+        SELECT COUNT(*) as total
+        FROM indicadores
+        WHERE ultimo_acesso IS NOT NULL
+        AND DATEDIFF(CURRENT_DATE(), ultimo_acesso) > 30
+      `);
+      
+      if (indicadoresInativos[0]?.total > 0) {
+        alertas.push({
+          id: 4,
+          tipo: 'info',
+          titulo: 'Indicadores inativos',
+          mensagem: `${indicadoresInativos[0].total} indicadores sem indicar há mais de 30 dias`,
+          data: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          lido: false,
+          link: '/admin?view=usuarios-lista'
+        });
+      }
+      
+      connection.release();
+      res.json(alertas);
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao buscar alertas:', error);
+    res.status(500).json({ message: 'Erro ao buscar alertas' });
+  }
+};
+
+// =========================================
+// LISTA DE VENDEDORES
+// =========================================
+export const getVendedores = async (req: Request, res: Response) => {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    
+    const [vendedores]: any = await connection.query(`
+      SELECT 
+        c.id,
+        c.nome,
+        c.email,
+        c.telefone,
+        c.status_conexao as whatsapp_conectado,
+        c.data_criacao as data_cadastro,
+        c.ultimo_acesso,
+        COUNT(l.id) as leads_ativos,
+        COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) as conversoes,
+        CASE 
+          WHEN COUNT(l.id) > 0 
+          THEN (COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) / COUNT(l.id)) * 100 
+          ELSE 0 
+        END as taxa_conversao,
+        COUNT(CASE WHEN l.status = 'convertido' THEN 1 END) * 2200 as faturamento
+      FROM consultores c
+      LEFT JOIN leads l ON l.consultor_id = c.id
+      GROUP BY c.id, c.nome, c.email, c.telefone, c.status_conexao, c.data_criacao, c.ultimo_acesso
+      ORDER BY c.nome
+    `);
+    
+    const vendedoresFormatados = vendedores.map((v: any) => ({
+      id: v.id,
+      nome: v.nome,
+      email: v.email,
+      telefone: v.telefone || '',
+      whatsappConectado: v.whatsapp_conectado === 'online',
+      dataCadastro: v.data_cadastro,
+      ultimoAcesso: v.ultimo_acesso,
+      ativo: true,
+      leadsAtivos: parseInt(v.leads_ativos) || 0,
+      conversoes: parseInt(v.conversoes) || 0,
+      taxaConversao: parseFloat(v.taxa_conversao) || 0,
+      faturamento: parseFloat(v.faturamento) || 0
+    }));
+    
+    res.json(vendedoresFormatados);
+    
+  } catch (error: any) {
+    console.error('Erro ao buscar vendedores:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ message: 'Erro ao buscar vendedores', error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+// =========================================
+// LISTA DE INDICADORES
+// =========================================
+export const getIndicadores = async (req: Request, res: Response) => {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    
+    const [indicadores]: any = await connection.query(`
+      SELECT 
+        id,
+        nome,
+        email,
+        telefone,
+        cpf,
+        data_criacao as data_cadastro,
+        ultimo_acesso,
+        ativo,
+        saldo_disponivel,
+        saldo_bloqueado,
+        saldo_perdido,
+        total_indicacoes,
+        indicacoes_respondidas,
+        indicacoes_convertidas,
+        CASE 
+          WHEN total_indicacoes > 0 
+          THEN (indicacoes_convertidas / total_indicacoes) * 100 
+          ELSE 0 
+        END as taxa_conversao,
+        (saldo_disponivel + saldo_bloqueado) as total_pago
+      FROM indicadores
+      ORDER BY nome
+    `);
+    
+    const indicadoresFormatados = indicadores.map((i: any) => ({
+      id: i.id,
+      nome: i.nome,
+      email: i.email,
+      telefone: i.telefone,
+      cpf: i.cpf,
+      dataCadastro: i.data_cadastro,
+      ultimoAcesso: i.ultimo_acesso,
+      ativo: i.ativo,
+      saldoDisponivel: parseFloat(i.saldo_disponivel),
+      saldoBloqueado: parseFloat(i.saldo_bloqueado),
+      saldoPerdido: parseFloat(i.saldo_perdido),
+      totalIndicacoes: i.total_indicacoes,
+      indicacoesRespondidas: i.indicacoes_respondidas,
+      indicacoesConvertidas: i.indicacoes_convertidas,
+      taxaConversao: parseFloat(i.taxa_conversao) || 0,
+      totalPago: parseFloat(i.total_pago)
+    }));
+    
+    res.json(indicadoresFormatados);
+    
+  } catch (error: any) {
+    console.error('Erro ao buscar indicadores:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ message: 'Erro ao buscar indicadores', error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+// =========================================
+// SOLICITAÇÕES DE SAQUE
+// =========================================
+export const getSolicitacoesSaque = async (req: Request, res: Response) => {
+  try {
+    const connection = await pool.getConnection();
+    
+    try {
+      const [saques]: any = await connection.query(`
+        SELECT 
+          s.id,
+          s.indicador_id,
+          i.nome as indicador_nome,
+          i.email as indicador_email,
+          s.valor,
+          s.data_solicitacao,
+          s.status
+        FROM saques_indicador s
+        INNER JOIN indicadores i ON i.id = s.indicador_id
+        WHERE s.status = 'solicitado'
+        ORDER BY s.data_solicitacao DESC
+      `);
+      
+      const saquesFormatados = saques.map((s: any) => ({
+        id: s.id,
+        indicadorId: s.indicador_id,
+        indicadorNome: s.indicador_nome,
+        indicadorEmail: s.indicador_email,
+        valor: parseFloat(s.valor),
+        dataSolicitacao: s.data_solicitacao,
+        status: s.status
+      }));
+      
+      connection.release();
+      res.json(saquesFormatados);
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao buscar solicitações de saque:', error);
+    res.status(500).json({ message: 'Erro ao buscar solicitações de saque' });
+  }
+};
+
+// =========================================
+// CRIAR VENDEDOR/CONSULTOR
+// =========================================
+export const criarVendedor = async (req: Request, res: Response) => {
+  try {
+    const { nome, email, telefone, senha } = req.body;
+    
+    if (!nome || !email || !telefone || !senha) {
+      return res.status(400).json({ message: 'Dados incompletos' });
+    }
+
+    const connection = await pool.getConnection();
+    
+    try {
+      // Verificar se email já existe
+      const [existente]: any = await connection.query(
+        'SELECT id FROM consultores WHERE email = ?',
+        [email]
+      );
+      
+      if (existente.length > 0) {
+        connection.release();
+        return res.status(400).json({ message: 'Email já cadastrado' });
+      }
+
+      // Hash da senha
+      const senhaHash = await bcrypt.hash(senha, 10);
+      
+      // Inserir consultor
+      const [result]: any = await connection.query(
+        `INSERT INTO consultores (nome, email, senha, telefone, status_conexao) 
+         VALUES (?, ?, ?, ?, 'offline')`,
+        [nome, email, senhaHash, telefone]
+      );
+      
+      connection.release();
+      
+      res.status(201).json({
+        id: result.insertId,
+        nome,
+        email,
+        telefone,
+        whatsappConectado: false,
+        dataCadastro: new Date().toISOString(),
+        ativo: true,
+        leadsAtivos: 0,
+        conversoes: 0,
+        taxaConversao: 0,
+        faturamento: 0
+      });
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao criar vendedor:', error);
+    res.status(500).json({ message: 'Erro ao criar vendedor' });
+  }
+};
+
+// =========================================
+// CRIAR INDICADOR
+// =========================================
+export const criarIndicador = async (req: Request, res: Response) => {
+  try {
+    const { nome, email, telefone, cpf, senha } = req.body;
+    
+    if (!nome || !email || !telefone || !cpf || !senha) {
+      return res.status(400).json({ message: 'Dados incompletos' });
+    }
+
+    const connection = await pool.getConnection();
+    
+    try {
+      // Verificar se email ou CPF já existe
+      const [existente]: any = await connection.query(
+        'SELECT id FROM indicadores WHERE email = ? OR cpf = ?',
+        [email, cpf]
+      );
+      
+      if (existente.length > 0) {
+        connection.release();
+        return res.status(400).json({ message: 'Email ou CPF já cadastrado' });
+      }
+
+      // Hash da senha
+      const senhaHash = await bcrypt.hash(senha, 10);
+      
+      // Inserir indicador
+      const [result]: any = await connection.query(
+        `INSERT INTO indicadores (nome, email, senha, telefone, cpf) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [nome, email, senhaHash, telefone, cpf]
+      );
+      
+      connection.release();
+      
+      res.status(201).json({
+        id: result.insertId,
+        nome,
+        email,
+        telefone,
+        cpf,
+        dataCadastro: new Date().toISOString(),
+        ativo: true,
+        saldoDisponivel: 0,
+        saldoBloqueado: 0,
+        saldoPerdido: 0,
+        totalIndicacoes: 0,
+        indicacoesRespondidas: 0,
+        indicacoesConvertidas: 0,
+        taxaConversao: 0,
+        totalPago: 0
+      });
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao criar indicador:', error);
+    res.status(500).json({ message: 'Erro ao criar indicador' });
+  }
+};
+
+// =========================================
+// DELETAR INDICADOR
+// =========================================
+export const deletarIndicador = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const connection = await pool.getConnection();
+    
+    try {
+      // Primeiro, remover referências em outras tabelas
+      await connection.query('UPDATE leads SET indicador_id = NULL WHERE indicador_id = ?', [id]);
+      await connection.query('DELETE FROM saques_indicador WHERE indicador_id = ?', [id]);
+      
+      // Deletar o indicador
+      const [result]: any = await connection.query('DELETE FROM indicadores WHERE id = ?', [id]);
+      
+      connection.release();
+      
+      if (result.affectedRows > 0) {
+        res.json({ message: 'Indicador deletado com sucesso' });
+      } else {
+        res.status(404).json({ message: 'Indicador não encontrado' });
+      }
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error: any) {
+    console.error('Erro ao deletar indicador:', error);
+    res.status(500).json({ message: 'Erro ao deletar indicador', error: error.message });
+  }
+};
+
+// =========================================
+// ATUALIZAR STATUS INDICADOR
+// =========================================
+export const atualizarStatusIndicador = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { ativo } = req.body;
+    
+    const connection = await pool.getConnection();
+    
+    try {
+      await connection.query(
+        'UPDATE indicadores SET ativo = ? WHERE id = ?',
+        [ativo, id]
+      );
+      
+      connection.release();
+      res.json({ message: 'Status atualizado' });
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao atualizar status indicador:', error);
+    res.status(500).json({ message: 'Erro ao atualizar status' });
+  }
+};
+
+// =========================================
+// CRIAR ADMIN/GERENTE/SUPERVISOR
+// =========================================
+export const criarAdmin = async (req: Request, res: Response) => {
+  try {
+    const { nome, email, telefone, senha, role } = req.body;
+    
+    if (!nome || !email || !telefone || !senha || !role) {
+      return res.status(400).json({ message: 'Dados incompletos' });
+    }
+
+    const connection = await pool.getConnection();
+    
+    try {
+      // Verificar se email já existe
+      const [existente]: any = await connection.query(
+        'SELECT id FROM consultores WHERE email = ?',
+        [email]
+      );
+      
+      if (existente.length > 0) {
+        connection.release();
+        return res.status(400).json({ message: 'Email já cadastrado' });
+      }
+
+      // Hash da senha
+      const senhaHash = await bcrypt.hash(senha, 10);
+      
+      // Inserir consultor (admin, gerente ou supervisor) COM O ROLE
+      const [result]: any = await connection.query(
+        `INSERT INTO consultores (nome, email, senha, telefone, status_conexao, role) 
+         VALUES (?, ?, ?, ?, 'offline', ?)`,
+        [nome, email, senhaHash, telefone, role]
+      );
+      
+      connection.release();
+      
+      res.status(201).json({
+        id: result.insertId,
+        nome,
+        email,
+        telefone,
+        role,
+        nivel: role === 'diretor' ? 1 : role === 'gerente' ? 2 : 3,
+        dataCadastro: new Date().toISOString(),
+        ativo: true
+      });
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao criar admin:', error);
+    res.status(500).json({ message: 'Erro ao criar admin' });
+  }
+};
+
+// =========================================
+// DELETAR VENDEDOR
+// =========================================
+export const deletarVendedor = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const connection = await pool.getConnection();
+    
+    try {
+      // eFR on.release();
+      gndedor deletado com sucesso' });
+      
+    } finally {
+      rror) {
+    coror('Erro ao deletar vendedor:', error);
+     
+// =========================================
+// DELETAR ADMIN
+// =========================================
+export const deletarAdmin = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const connection = await pool.getConnection();
+    
+    try {
+      // Primeiro, remover referências em outras tabelas (admin também pode ser consultor)
+      await connection.query('UPDATE leads SET consultor_id = NULL WHERE consultor_id = ?', [id]);
+      await connection.query('UPDATE mensagens SET consultor_id = NULL WHERE consultor_id = ?', [id]);
+      
+      // Deletar o admin (também é um consultor)
+      const [result]: any = await connection.query('DELETE FROM consultores WHERE id = ?', [id]);
+      
+      connection.release();
+      
+      if (result.affectedRows > 0) {
+        res.json({ message: 'Admin deletado com sucesso' });
+      } else {
+        res.status(404).json({ message: 'Admin não encontrado' });
+      }
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error: any) {
+    console.error('Erro ao deletar admin:', error);
+    res.status(500).json({ message: 'Erro ao deletar admin', error: error.message });
+  }
+};
+    }finally{
+cnectn.elease();
+ // }
+==}==a=ch=(erro=) {
+=======sol=rrorro aodeletaror:', errr);
+    es.status(500).json({ msage:'rro ao deletarindcaor}
+EL}
+};
+ETAR ADMIN
+///=========================================
+// DELETAR=ADMIN
+//==========================================
+export====st del==arAdm=n = asy=c (req: Request, ==s: R=spon===r=>t{ const deletarAdmin = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const connection = await pool.getConnection();
+    
+    try {
+      // Deletar o admin (também é um consultor)
+      await connection.query('DELETE FROM consultores WHERE id = ?', [id]);
+      
+      connection.release();
+      res.json({ message: 'Admin deletado com sucesso' });
+      
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao deletar admin:', error);
+    res.status(500).json({ message: 'Erro ao deletar admin' });
+  }
+};

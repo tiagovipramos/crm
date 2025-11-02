@@ -1,0 +1,100 @@
+# ==============================================
+# DOCKERIGNORE - BACKEND
+# ==============================================
+# Arquivos e pastas ignorados no build Docker do backend
+# Isso reduz o tamanho da imagem e acelera o build
+
+# Dependências
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build e compilação
+dist
+build
+*.tsbuildinfo
+
+# Testes
+coverage
+.nyc_output
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+__tests__
+__mocks__
+
+# Cache e temporários
+.cache
+.temp
+.tmp
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# IDEs e editores
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Documentação
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+
+# Arquivos de configuração local e desenvolvimento
+.env
+.env.local
+.env.*.local
+nodemon.json
+
+# Scripts Windows (não necessários no container Linux)
+*.bat
+
+# Uploads (serão montados como volume)
+uploads/*
+!uploads/.gitkeep
+
+# Sessões WhatsApp (sensível, será volume)
+auth_*
+whatsapp-session
+
+# Arquivos de desenvolvimento/teste
+test_auth
+*.backup
+*.old
+*.bak
+
+# TypeScript source maps (não necessário em produção)
+*.map
+
+# Scripts de migration (já estão em /migrations)
+*.sql
+
+# Outros
+.editorconfig
+.prettierrc
+.eslintrc
+tsconfig.json
